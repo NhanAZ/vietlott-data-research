@@ -17,10 +17,11 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert 'id="kiem-dinh"' in index
-    assert "assets/app.js?v=20260614-7" in index
+    assert "assets/app.js?v=20260614-8" in index
     assert "assets/docs.js?v=20260614-2" in data_page
     for page in (index, method_page, data_page):
-        assert "assets/styles.css?v=20260614-7" in page
+        assert "assets/styles.css?v=20260614-8" in page
+        assert "assets/favicon.svg?v=20260614-8" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
         assert "fi-rr-crystal-ball" in page
@@ -37,9 +38,17 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "Kết luận: cách kết hợp dấu hiệu chưa tốt hơn chọn ngẫu nhiên." in app_script
     assert "renderFairnessAudit" in app_script
     assert "renderAuditVisualLog" in app_script
+    assert 'text("ribbon-product-count"' in app_script
+    assert 'text("prediction-product-count"' in app_script
+    assert "backtest-evidence" in app_script
     assert "audit-log-visual" in index
     assert "audit-log.jsonl" in index
     assert "audit-summary.json" in data_page
+    assert "display: block;\n  height: 100%;" in styles
+    assert "grid-template-columns: auto minmax(0, 1fr)" in styles
+    assert "Phiên bản phương pháp" not in index
+    assert "Phiên bản cách tính" not in index
+    assert "Cách tính phiên bản" not in app_script
     assert '{ cache: "no-store" }' in app_script
     assert '{ cache: "no-store" }' in docs_script
     assert (ROOT / "site" / "phuong-phap.html").exists()

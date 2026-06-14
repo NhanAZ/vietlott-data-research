@@ -131,7 +131,7 @@ function renderManifest(manifest) {
   text("confirmed-count", numberFormatter.format(manifest.confirmed_rows));
   text("unconfirmed-count", numberFormatter.format(manifest.not_confirmed_rows));
   text("prize-count", numberFormatter.format(manifest.prize_rows));
-  text("method-version", manifest.methodology_version);
+  text("ribbon-product-count", numberFormatter.format(manifest.products.length));
 }
 
 function renderProductTabs(products) {
@@ -300,9 +300,9 @@ function renderUniformity(uniformity, kind) {
   text("test-explanation", explanation);
 
   const metrics = [
-    ["Mức bất thường (p)", formatPValue(pValue)],
+    ["Mức bất thường", formatPValue(pValue)],
     ["Độ lệch thực tế", formatDecimal(effect, 4)],
-    ["Mức phân tán đều", formatDecimal(uniformity.normalized_entropy, 6)],
+    ["Độ đồng đều", formatDecimal(uniformity.normalized_entropy, 6)],
   ];
   document.getElementById("test-metrics").innerHTML = metrics
     .map(
@@ -574,8 +574,8 @@ function renderNumberGrid(numbers) {
 
 function renderNumberProfile(item) {
   const significance = item.q_value_bh < 0.05
-    ? "Vẫn nổi bật sau khi kiểm tra nhiều số"
-    : "Chưa đủ nổi bật sau khi kiểm tra nhiều số";
+    ? "Vẫn nổi bật khi xét toàn bộ số"
+    : "Chưa nổi bật khi xét toàn bộ số";
   document.getElementById("number-profile").innerHTML = `
     <div class="profile-number">
       <strong>${String(item.number).padStart(2, "0")}</strong>
@@ -899,14 +899,12 @@ function renderBacktest(backtest, kind) {
       </div>
     </div>
     <p class="backtest-verdict">${escapeHtml(conclusion)}</p>
-    <details class="technical-details">
-      <summary>Xem chi tiết học thuật</summary>
-      <p>
-        Chênh lệch ${formatSigned(comparisonValue)}, p xấp xỉ
-        ${formatPValue(backtest.comparison.approximate_p_value)} trên
-        ${numberFormatter.format(backtest.samples)} kỳ kiểm tra.
-      </p>
-    </details>`;
+    <p class="backtest-evidence">
+      <span>Đối chiếu thống kê</span>
+      Chênh lệch ${formatSigned(comparisonValue)}, mức bất thường xấp xỉ
+      ${formatPValue(backtest.comparison.approximate_p_value)} trên
+      ${numberFormatter.format(backtest.samples)} kỳ kiểm tra.
+    </p>`;
 }
 
 function renderPrizeReport(prizes) {
@@ -958,9 +956,9 @@ function renderRecentDraws(draws, kind) {
 function renderPredictionShell(predictions, products) {
   text("pending-predictions", numberFormatter.format(predictions.pending_count));
   text("evaluated-predictions", numberFormatter.format(predictions.evaluation_count));
-  text("prediction-version", predictions.model_version);
   const select = document.getElementById("prediction-product");
   const available = products.filter((product) => predictions.latest[product.slug]);
+  text("prediction-product-count", numberFormatter.format(available.length));
   select.innerHTML = available
     .map(
       (product) =>
@@ -1003,7 +1001,6 @@ function renderPredictionCards(slug) {
           <div class="prediction-meta">
             <span>Mã lưu vết ${escapeHtml(prediction.prediction_id)}</span>
             <span>Dữ liệu đến kỳ #${escapeHtml(prediction.dataset_cutoff_draw_id)}</span>
-            <span>Cách tính phiên bản ${escapeHtml(prediction.model_version)}</span>
           </div>
         </article>`;
     })
