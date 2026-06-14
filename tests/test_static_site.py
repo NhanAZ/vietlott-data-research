@@ -8,11 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_static_site_has_required_pages_and_local_assets() -> None:
     index = (ROOT / "site" / "index.html").read_text(encoding="utf-8")
+    data_page = (ROOT / "site" / "du-lieu.html").read_text(encoding="utf-8")
     app_script = (ROOT / "site" / "assets" / "app.js").read_text(encoding="utf-8")
     docs_script = (ROOT / "site" / "assets" / "docs.js").read_text(encoding="utf-8")
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
-    assert "assets/app.js" in index
+    assert "assets/app.js?v=20260614-1" in index
+    assert "assets/docs.js?v=20260614-1" in data_page
     assert "https://cdn." not in index
     assert '{ cache: "no-store" }' in app_script
     assert '{ cache: "no-store" }' in docs_script
