@@ -30,15 +30,15 @@ async function initialize() {
   renderManifest(manifest);
   renderProductTabs(manifest.products);
   renderPredictionShell(predictions, manifest.products);
-  renderProjectVerdict(manifest.products).catch((error) => {
-    console.error("Không tổng hợp được kết luận toàn bộ sản phẩm", error);
-  });
 
   const requested = new URLSearchParams(window.location.search).get("product");
   const initial = manifest.products.some((item) => item.slug === requested)
     ? requested
     : "power655";
   await selectProduct(initial);
+  renderProjectVerdict(manifest.products).catch((error) => {
+    console.error("Không tổng hợp được kết luận toàn bộ sản phẩm", error);
+  });
   if (initialHash) {
     window.requestAnimationFrame(() => {
       const target = document.querySelector(initialHash);

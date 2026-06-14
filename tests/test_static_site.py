@@ -16,7 +16,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert "assets/styles.css?v=20260614-3" in index
-    assert "assets/app.js?v=20260614-2" in index
+    assert "assets/app.js?v=20260614-3" in index
     assert "assets/docs.js?v=20260614-1" in data_page
     for page in (index, method_page, data_page):
         assert "cdn-uicons.flaticon.com/3.0.0" in page
