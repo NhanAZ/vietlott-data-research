@@ -914,16 +914,20 @@ function formatDate(value) {
 
 function text(id, value) {
   const node = document.getElementById(id);
-  if (node) node.textContent = value;
+  if (node) node.textContent = normalizeText(value);
 }
 
 function escapeHtml(value) {
-  return String(value)
+  return normalizeText(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function normalizeText(value) {
+  return String(value).normalize("NFC");
 }
 
 function showDashboardError(error) {

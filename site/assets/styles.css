@@ -14,6 +14,7 @@
   --shadow: 0 20px 55px rgb(16 42 43 / 9%);
   --radius: 22px;
   --shell: min(1180px, calc(100vw - 40px));
+  --font-display: "Noto Serif", "Times New Roman", serif;
 }
 
 * {
@@ -176,7 +177,8 @@ a {
 .section-heading h2,
 .product-masthead h2,
 .closing blockquote {
-  font-family: Cambria, "Times New Roman", serif;
+  font-family: var(--font-display);
+  font-kerning: normal;
 }
 
 .hero h1 {
@@ -185,7 +187,7 @@ a {
   font-size: clamp(58px, 8vw, 106px);
   font-weight: 500;
   line-height: 0.96;
-  letter-spacing: -0.045em;
+  letter-spacing: normal;
 }
 
 .hero h1 span {
@@ -364,7 +366,7 @@ a {
   font-size: clamp(38px, 5vw, 62px);
   font-weight: 500;
   line-height: 1.08;
-  letter-spacing: -0.025em;
+  letter-spacing: normal;
 }
 
 .section-heading > p {
@@ -406,7 +408,9 @@ a {
   top: 22px;
   right: 24px;
   color: #9aa39c;
-  font: italic 28px Georgia, serif;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-style: italic;
 }
 
 .principle-card::after {
@@ -448,8 +452,11 @@ a {
 
 .stance-intro h2 {
   margin: 0;
-  font: 500 clamp(38px, 4.8vw, 62px)/1.08 Cambria, "Times New Roman", serif;
-  letter-spacing: -0.025em;
+  font-family: var(--font-display);
+  font-size: clamp(38px, 4.8vw, 62px);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: normal;
 }
 
 .stance-intro > p:last-child {
@@ -682,7 +689,7 @@ a {
   font-size: clamp(48px, 7vw, 78px);
   font-weight: 500;
   line-height: 0.95;
-  letter-spacing: -0.055em;
+  letter-spacing: normal;
 }
 
 .product-masthead p {
@@ -800,8 +807,10 @@ a {
 
 .big-explanation {
   margin: 0;
-  font: 31px/1.35 Georgia, serif;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 31px;
+  line-height: 1.35;
+  letter-spacing: normal;
 }
 
 .test-metrics {
@@ -1524,7 +1533,7 @@ a {
   margin: 26px auto 0;
   font-size: clamp(31px, 4.5vw, 56px);
   line-height: 1.15;
-  letter-spacing: -0.035em;
+  letter-spacing: normal;
 }
 
 .site-footer {
@@ -1857,8 +1866,11 @@ a {
 .document-hero h1 {
   max-width: 980px;
   margin: 0;
-  font: 500 clamp(58px, 8vw, 102px) / 0.95 Georgia, serif;
-  letter-spacing: -0.06em;
+  font-family: var(--font-display);
+  font-size: clamp(58px, 8vw, 102px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: normal;
 }
 
 .document-hero > p:last-child {
@@ -1918,13 +1930,18 @@ a {
 .article-index {
   margin: 0 0 12px;
   color: #62817d;
-  font: italic 18px Georgia, serif;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-style: italic;
 }
 
 .research-article h2 {
   margin: 0 0 24px;
-  font: 500 clamp(36px, 5vw, 58px) / 1 Georgia, serif;
-  letter-spacing: -0.04em;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5vw, 58px);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: normal;
 }
 
 .research-article h3 {

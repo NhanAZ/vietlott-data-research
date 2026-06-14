@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,16 +16,22 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     docs_script = (ROOT / "site" / "assets" / "docs.js").read_text(encoding="utf-8")
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
-    assert "assets/styles.css?v=20260614-3" in index
-    assert "assets/app.js?v=20260614-3" in index
-    assert "assets/docs.js?v=20260614-1" in data_page
+    assert "assets/app.js?v=20260614-4" in index
+    assert "assets/docs.js?v=20260614-2" in data_page
     for page in (index, method_page, data_page):
+        assert "assets/styles.css?v=20260614-4" in page
+        assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
         assert "fi-rr-crystal-ball" in page
         assert "Biểu tượng từ UIcons by Flaticon" in page
     assert "[hidden]" in styles
     assert "display: none !important" in styles
     assert "min-height: 72px" in styles
+    assert '--font-display: "Noto Serif"' in styles
+    assert "Georgia" not in styles
+    assert "Cambria" not in styles
+    assert '.normalize("NFC")' in app_script
+    assert '.normalize("NFC")' in docs_script
     assert "Chọn ngẫu nhiên có thể lặp lại" in app_script
     assert "Kết luận: cách kết hợp dấu hiệu chưa tốt hơn chọn ngẫu nhiên." in app_script
     assert '{ cache: "no-store" }' in app_script
@@ -32,6 +39,14 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert (ROOT / "site" / "phuong-phap.html").exists()
     assert (ROOT / "site" / "du-lieu.html").exists()
     assert (ROOT / "site" / ".nojekyll").exists()
+
+
+def test_static_site_text_is_normalized_unicode() -> None:
+    text_suffixes = {".css", ".html", ".js", ".json"}
+    for path in (ROOT / "site").rglob("*"):
+        if path.is_file() and path.suffix.lower() in text_suffixes:
+            content = path.read_text(encoding="utf-8")
+            assert unicodedata.is_normalized("NFC", content), path
 
 
 def test_generated_site_data_matches_manifest() -> None:

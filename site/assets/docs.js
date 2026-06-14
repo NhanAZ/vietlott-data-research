@@ -7,7 +7,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const manifest = await response.json();
     document.querySelectorAll("[data-manifest]").forEach((node) => {
       const value = manifest[node.dataset.manifest];
-      node.textContent = typeof value === "number" ? docsNumberFormatter.format(value) : value;
+      node.textContent =
+        typeof value === "number"
+          ? docsNumberFormatter.format(value)
+          : normalizeDocsText(value);
     });
     renderCoverage(manifest.products);
   } catch (error) {
@@ -42,10 +45,14 @@ function formatDocsDate(value) {
 }
 
 function escapeDocs(value) {
-  return String(value)
+  return normalizeDocsText(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function normalizeDocsText(value) {
+  return String(value).normalize("NFC");
 }
