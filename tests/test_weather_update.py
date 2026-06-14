@@ -45,3 +45,33 @@ def test_weather_update_writes_csv_and_metadata(
     metadata = (tmp_path / "metadata.json").read_text(encoding="utf-8")
     assert "ERA5-Land" in metadata
     assert "Tam Trinh" in metadata
+
+
+def test_weather_update_never_shrinks_existing_cache(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("requests.Session.get", lambda *args, **kwargs: FakeResponse())
+    monkeypatch.setattr("time.sleep", lambda _: None)
+    update_weather_dataset(
+        tmp_path,
+        start=date(2025, 1, 22),
+        end=date(2025, 1, 23),
+        refresh_days=0,
+        request_delay=0,
+    )
+    monkeypatch.setattr(
+        "vietlott_analytics.weather._fetch_venue_range",
+        lambda *args, **kwargs: {},
+    )
+
+    report = update_weather_dataset(
+        tmp_path,
+        start=date(2025, 1, 22),
+        end=date(2025, 1, 22),
+        refresh_days=0,
+        request_delay=0,
+    )
+
+    assert report["rows"] == 2
+    assert report["latest_date"] == "2025-01-23"

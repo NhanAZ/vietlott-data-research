@@ -6,8 +6,9 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -26,6 +27,7 @@ DAILY_VARIABLES = (
     "relative_humidity_2m_mean",
 )
 ARCHIVE_SAFETY_LAG_DAYS = 7
+WEATHER_TIMEZONE = "Asia/Ho_Chi_Minh"
 CSV_FIELDS = (
     "date",
     "venue_id",
@@ -87,7 +89,7 @@ def update_weather_dataset(
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "daily.csv"
     metadata_path = output_dir / "metadata.json"
-    stable_end = date.today() - timedelta(days=ARCHIVE_SAFETY_LAG_DAYS)
+    stable_end = _weather_today() - timedelta(days=ARCHIVE_SAFETY_LAG_DAYS)
     requested_end = min(end or stable_end, stable_end)
     if requested_end < start:
         raise ValueError("Weather end date is earlier than start date")
@@ -131,11 +133,9 @@ def update_weather_dataset(
             )
         )
 
-    merged = {
-        key: value
-        for key, value in existing.items()
-        if start <= date.fromisoformat(key) <= requested_end
-    }
+    # An incremental refresh may run before midnight in UTC while Vietnam is
+    # already on the next date. Never let that make the historical cache shrink.
+    merged = dict(existing)
     merged.update(fetched)
     _write_csv(csv_path, merged)
     metadata = {
@@ -144,7 +144,7 @@ def update_weather_dataset(
         "source_documentation": SOURCE_DOC_URL,
         "source_endpoint": ARCHIVE_URL,
         "weather_model": "ERA5-Land",
-        "timezone": "Asia/Bangkok",
+        "timezone": WEATHER_TIMEZONE,
         "nominal_availability_delay_days": 5,
         "pipeline_safety_lag_days": ARCHIVE_SAFETY_LAG_DAYS,
         "first_date": min(merged) if merged else None,
@@ -205,7 +205,7 @@ def _fetch_venue_range(
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
         "daily": ",".join(DAILY_VARIABLES),
-        "timezone": "Asia/Bangkok",
+        "timezone": WEATHER_TIMEZONE,
         "models": "era5_land",
         "cell_selection": "land",
     }
@@ -290,6 +290,10 @@ def _date_range(start: date, end: date):
     while current <= end:
         yield current
         current += timedelta(days=1)
+
+
+def _weather_today() -> date:
+    return datetime.now(ZoneInfo(WEATHER_TIMEZONE)).date()
 
 
 def build_parser() -> argparse.ArgumentParser:
