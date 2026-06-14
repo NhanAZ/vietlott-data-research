@@ -164,7 +164,7 @@ a {
 .section-heading h2,
 .product-masthead h2,
 .closing blockquote {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: Cambria, "Times New Roman", serif;
 }
 
 .hero h1 {
@@ -172,8 +172,8 @@ a {
   margin: 0;
   font-size: clamp(58px, 8vw, 106px);
   font-weight: 500;
-  line-height: 0.88;
-  letter-spacing: -0.065em;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
 }
 
 .hero h1 span {
@@ -351,8 +351,8 @@ a {
   margin: 0;
   font-size: clamp(38px, 5vw, 62px);
   font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.045em;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
 }
 
 .section-heading > p {

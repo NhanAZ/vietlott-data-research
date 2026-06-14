@@ -13,6 +13,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     docs_script = (ROOT / "site" / "assets" / "docs.js").read_text(encoding="utf-8")
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
+    assert "assets/styles.css?v=20260614-2" in index
     assert "assets/app.js?v=20260614-1" in index
     assert "assets/docs.js?v=20260614-1" in data_page
     assert "https://cdn." not in index
