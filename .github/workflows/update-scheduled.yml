@@ -1,0 +1,67 @@
+name: Cập nhật các kỳ quay theo lịch
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7,27,47 13,18,21 * * *"
+      timezone: "Asia/Ho_Chi_Minh"
+    - cron: "17 22 * * *"
+      timezone: "Asia/Ho_Chi_Minh"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vietlott-dataset-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cài Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Cài chương trình
+        run: python -m pip install -e .
+
+      - name: Khôi phục kho làm việc
+        run: vietlott-repository-data hydrate --source-dir datasets --destination-dir data
+
+      - name: Đọc kỳ mới từ nguồn chính thức
+        run: >
+          vietlott-auto-update
+          --products mega645 power655 lotto535 max3d max3dpro
+          --output-dir data
+          --reconcile-pages 2
+          --request-delay 0.8
+          --jitter 0.25
+          --retries 5
+
+      - name: Đóng gói và kiểm tra dataset
+        run: |
+          vietlott-repository-data publish --source-dir data --destination-dir datasets
+          vietlott-repository-data validate --source-dir datasets
+
+      - name: Commit khi dữ liệu thay đổi
+        shell: bash
+        run: |
+          git add datasets
+          if git diff --cached --quiet; then
+            echo "Không có kỳ mới hoặc thay đổi chính thức"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: cập nhật kết quả Vietlott"
+          git pull --rebase origin main
+          git push origin HEAD:main

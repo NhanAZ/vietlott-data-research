@@ -1,0 +1,136 @@
+# Vietlott Data Research
+
+Kho dữ liệu và chương trình Python phục vụ nghiên cứu cá nhân về khoa học dữ liệu,
+xác suất và thống kê trên kết quả Vietlott.
+
+Dự án ưu tiên nguồn công khai chính thức, lưu cả lịch sử đã thu thập và tự kiểm tra
+kỳ mới bằng GitHub Actions. Mục tiêu là tạo một tập dữ liệu có nguồn gốc rõ ràng,
+có thể tái lập và đủ thuận tiện cho phân tích bằng Python, R hoặc công cụ bảng tính.
+
+## Phạm vi dữ liệu
+
+- Mega 6/45
+- Power 6/55
+- Lotto 5/35
+- Max 3D và Max 3D+
+- Max 3D Pro
+- Max 4D lịch sử
+- Keno
+- Bingo18
+
+Dataset hiện có 379.306 bản ghi kỳ quay. Keno có dữ liệu từ mã `0000001` và
+75 mã kỳ đã được nhiều nguồn đối chiếu là không phát hành. Các kỳ bị thông báo
+không xác nhận được giữ lại với `draw_status=not_confirmed` để bảo toàn dấu vết,
+nhưng phải loại khỏi mẫu phân tích mặc định.
+
+## Dùng dataset
+
+Clone repo và cài chương trình
+
+```powershell
+git clone https://github.com/NhanAZ/vietlott-data-research.git
+cd vietlott-data-research
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
+
+Ghép các phân vùng trong `datasets` thành CSV
+
+```powershell
+vietlott-repository-data hydrate --source-dir datasets --destination-dir data
+```
+
+Các tệp chính
+
+- `data/draws.csv` chứa một dòng cho mỗi kỳ quay
+- `data/prizes.csv` chứa thông tin giải thưởng theo kỳ
+- `data/prize_rules.csv` chứa luật trả thưởng có cấu trúc ổn định
+- `datasets/exclusions.csv` chứa các kỳ cần loại khỏi phân tích
+- `datasets/metadata/dataset-summary.json` chứa thống kê bao phủ
+
+Ví dụ đọc dữ liệu hợp lệ bằng pandas
+
+```python
+import pandas as pd
+
+draws = pd.read_csv(
+    "data/draws.csv",
+    dtype={"product": "string", "draw_id": "string"},
+)
+sample = draws.loc[draws["draw_status"] == "confirmed"].copy()
+```
+
+Không nên bỏ điều kiện `draw_status` khi xây dựng mô hình hoặc kiểm định.
+
+## Cập nhật
+
+Keno và Bingo18 được kiểm tra mỗi 10 phút trong khung phát hành. Các sản phẩm
+quay theo mốc giờ được kiểm tra nhiều lần sau các mốc dự kiến. Chương trình đọc
+trạng thái thực tế từ nguồn chính thức thay vì tự tạo kỳ theo lịch.
+
+Cách này xử lý được các trường hợp
+
+- kết quả công bố chậm
+- kỳ quay đổi lịch
+- kỳ không diễn ra
+- sản phẩm tạm dừng hoặc ngừng hoạt động
+- workflow bị GitHub trì hoãn
+- mạng lỗi tạm thời
+- nguồn sửa kết quả gần nhất
+
+Nếu không có dữ liệu mới thì workflow không tạo commit. Khi một lần chạy bị lỡ,
+lần sau tiếp tục đọc nhiều trang cho đến khi gặp vùng dữ liệu đã có.
+
+Chạy cập nhật thủ công
+
+```powershell
+vietlott-auto-update --products keno bingo18 --output-dir data
+vietlott-repository-data publish --source-dir data --destination-dir datasets
+```
+
+## Tài liệu
+
+- [Nguồn và quy trình thu thập](docs/THU_THAP_DU_LIEU.md)
+- [Cơ chế tự động cập nhật](docs/TU_DONG_CAP_NHAT.md)
+- [Định hướng nghiên cứu](docs/NGHIEN_CUU.md)
+- [Các trò chơi và cơ chế quay](docs/tro-choi/README.md)
+- [Kiến trúc chương trình](docs/ARCHITECTURE.md)
+
+## Tinh thần nghiên cứu
+
+Repo bắt đầu từ một câu hỏi cá nhân. Một hệ cơ học có thể chịu ảnh hưởng rất nhỏ
+từ khối lượng bi, độ mòn, luồng khí, nhiệt độ hoặc sai số thiết bị hay không.
+Nếu có, ảnh hưởng đó có đủ lớn và đủ ổn định để quan sát trong dữ liệu hay chỉ
+là nhiễu không thể phân biệt với ngẫu nhiên.
+
+Đây là giả thuyết cần kiểm định, không phải kết luận. Dự án cũng xem xét tần suất
+số, độ phụ thuộc theo thời gian, entropy, độ đồng đều và thay đổi chế độ. Một bộ
+số trông "đẹp" hoặc có quy luật không mặc nhiên ít có khả năng hơn một bộ cụ thể
+khác trong mô hình đồng đều. Cảm giác hiếm thường đến từ cách con người gom nhiều
+mẫu khác nhau thành một nhóm dễ nhận biết.
+
+Trong tương lai repo có thể bổ sung website tĩnh để trực quan hóa phân bố, sai lệch,
+độ bất định và kết quả kiểm định ngoài mẫu. Mọi dự báo nếu có chỉ là thí nghiệm.
+
+## Nguồn, pháp lý và trách nhiệm
+
+Kết quả được lấy từ trang công khai của
+[Vietlott](https://vietlott.vn/vi/trung-thuong/ket-qua-trung-thuong/)
+và một số nguồn đối chiếu được ghi trong tài liệu kỹ thuật. Repo không liên kết,
+đại diện hoặc được bảo trợ bởi Vietlott, MoMo hay đơn vị phát hành nào.
+
+Dự án lưu dữ kiện kết quả và thông tin nguồn cho mục đích cá nhân, học tập và
+nghiên cứu. Repo không sao chép logo, giao diện, bài viết hoặc video của nguồn.
+Người sử dụng cần tự kiểm tra điều khoản, quyền sở hữu trí tuệ và quy định pháp
+luật áp dụng tại thời điểm sử dụng. Nội dung trong repo không phải tư vấn pháp lý.
+
+Xổ số là hoạt động có rủi ro tài chính và dành cho người đủ điều kiện theo pháp
+luật. Dữ liệu lịch sử không bảo đảm khả năng dự đoán hoặc trúng thưởng. Không nên
+dùng repo làm cơ sở để vay tiền, tăng mức cược hoặc xem kết quả mô hình là lời
+khuyên tài chính.
+
+## Giấy phép
+
+Mã nguồn được phát hành theo giấy phép MIT. Dữ liệu gốc vẫn chịu các quyền và
+điều kiện của nguồn tương ứng.

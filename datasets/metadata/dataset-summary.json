@@ -1,0 +1,87 @@
+{
+  "confirmed_rows": 379245,
+  "dataset_updated_at": "2026-06-14T01:37:37+00:00",
+  "draw_rows": 379306,
+  "not_confirmed_rows": 61,
+  "prize_rows": 45320,
+  "products": {
+    "bingo18": {
+      "confirmed_rows": 88530,
+      "first_date": "2024-12-03",
+      "last_date": "2026-06-14",
+      "max_id": "0171754",
+      "min_id": "0083123",
+      "not_confirmed_rows": 30,
+      "rows": 88560
+    },
+    "keno": {
+      "confirmed_rows": 284582,
+      "first_date": "2019-08-23",
+      "last_date": "2026-06-14",
+      "max_id": "0284688",
+      "min_id": "0000001",
+      "not_confirmed_rows": 31,
+      "rows": 284613
+    },
+    "lotto535": {
+      "confirmed_rows": 700,
+      "first_date": "2025-06-29",
+      "last_date": "2026-06-13",
+      "max_id": "00700",
+      "min_id": "00001",
+      "not_confirmed_rows": 0,
+      "rows": 700
+    },
+    "max3d": {
+      "confirmed_rows": 1092,
+      "first_date": "2019-04-22",
+      "last_date": "2026-06-12",
+      "max_id": "01092",
+      "min_id": "00001",
+      "not_confirmed_rows": 0,
+      "rows": 1092
+    },
+    "max3dpro": {
+      "confirmed_rows": 739,
+      "first_date": "2021-09-14",
+      "last_date": "2026-06-13",
+      "max_id": "00739",
+      "min_id": "00001",
+      "not_confirmed_rows": 0,
+      "rows": 739
+    },
+    "max4d": {
+      "confirmed_rows": 722,
+      "first_date": "2016-11-19",
+      "last_date": "2021-08-31",
+      "max_id": "00722",
+      "min_id": "00001",
+      "not_confirmed_rows": 0,
+      "rows": 722
+    },
+    "mega645": {
+      "confirmed_rows": 1522,
+      "first_date": "2016-07-20",
+      "last_date": "2026-06-12",
+      "max_id": "01522",
+      "min_id": "00001",
+      "not_confirmed_rows": 0,
+      "rows": 1522
+    },
+    "power655": {
+      "confirmed_rows": 1358,
+      "first_date": "2017-08-01",
+      "last_date": "2026-06-13",
+      "max_id": "01358",
+      "min_id": "00001",
+      "not_confirmed_rows": 0,
+      "rows": 1358
+    }
+  },
+  "schema_version": 1,
+  "storage_layout": {
+    "high_frequency": "draws/<product>/YYYY-MM.csv",
+    "other_products": "draws/<product>/all.csv",
+    "prizes": "prizes/<product>/all.csv"
+  }
+}

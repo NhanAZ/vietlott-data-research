@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vietlott-history-collector"
+version = "0.2.0"
+description = "Collect and normalize public Vietlott draw history for data research."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "NhanAZ"}]
+dependencies = [
+  "beautifulsoup4>=4.12,<5",
+  "pandas>=2.2,<3",
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+parquet = [
+  "pyarrow>=17,<23",
+]
+dev = [
+  "pytest>=8.3,<10",
+  "ruff>=0.9,<1",
+]
+
+[project.scripts]
+vietlott-collector = "vietlott_collector.cli:main"
+vietlott-full-backfill = "vietlott_collector.full_backfill:main"
+vietlott-official-reconcile = "vietlott_collector.official_reconcile:main"
+vietlott-fast-gap-reconcile = "vietlott_collector.fast_gap_reconcile:main"
+vietlott-keno-history = "vietlott_collector.keno_history:main"
+vietlott-keno-gap-repair = "vietlott_collector.keno_gap_repair:main"
+vietlott-keno-full-history = "vietlott_collector.keno_full_history:main"
+vietlott-auto-update = "vietlott_collector.incremental_update:main"
+vietlott-repository-data = "vietlott_collector.repository_data:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["_sources", "data", "datasets", "tmp"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
