@@ -22,7 +22,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260614-2" in data_page
     for page in (index, method_page, data_page):
-        assert "assets/styles.css?v=20260615-6" in page
+        assert "assets/styles.css?v=20260615-7" in page
         assert "assets/favicon.svg?v=20260614-9" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
@@ -61,7 +61,9 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "backtest-evidence" in app_script
     assert "renderBacktestOverview" in app_script
     assert "Xem chi tiết 8 báo cáo backtest" in index
-    assert "Sản phẩm có chiến lược vượt baseline" in index
+    assert "Toàn hệ thống - khả năng dự báo" in index
+    assert "Từ kết luận nhanh đến kiểm định chi tiết" in index
+    assert "Bước 2 - kiểm định mở rộng" in index
     assert "audit-log-visual" in index
     assert "audit-log.jsonl" in index
     assert "audit-summary.json" in data_page

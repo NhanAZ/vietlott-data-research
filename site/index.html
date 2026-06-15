@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,500;1,400;1,500&amp;display=swap">
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/3.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css">
-  <link rel="stylesheet" href="assets/styles.css?v=20260615-6">
+  <link rel="stylesheet" href="assets/styles.css?v=20260615-7">
   <script src="assets/app.js?v=20260615-5" defer></script>
 </head>
 <body>
@@ -109,7 +109,7 @@
         </p>
       </div>
       <div class="stance-verdict">
-          <span>Sản phẩm có chiến lược vượt baseline</span>
+          <span>Toàn hệ thống - khả năng dự báo</span>
           <strong id="verdict-backtest-count">Đang đối chiếu...</strong>
           <p id="project-verdict-summary">
             Đang so từng phương pháp với cách chọn ngẫu nhiên trên dữ liệu quá khứ.
@@ -248,41 +248,56 @@
 
         <div id="product-metrics" class="metric-grid"></div>
 
-        <section class="panel conclusion-panel">
-          <div class="panel-heading">
+        <section class="product-evidence panel" aria-labelledby="product-evidence-title">
+          <div class="product-evidence-heading">
             <div>
-              <p class="panel-kicker">So với phân bố đều</p>
-              <h3>Dữ liệu đang kể câu chuyện gì?</h3>
+              <p class="panel-kicker">Sản phẩm đang chọn - bằng chứng thống kê</p>
+              <h3 id="product-evidence-title">Từ kết luận nhanh đến kiểm định chi tiết</h3>
             </div>
-            <span id="test-verdict" class="verdict">...</span>
+            <p>
+              Phần đầu trả lời dữ liệu có gần phân bố đều không. Phần mở rộng bên dưới
+              kiểm tra thêm chuỗi thời gian, mùa vụ, điểm đổi chế độ và đồng xuất hiện.
+            </p>
           </div>
-          <div class="conclusion-layout">
-            <p id="test-explanation" class="big-explanation">...</p>
-            <div class="test-metrics" id="test-metrics"></div>
-          </div>
-          <p class="method-note">
-            "Mức bất thường" nhỏ chỉ nói dữ liệu khó phù hợp với mốc so sánh.
-            Nó không cho biết sai lệch lớn đến đâu và không chứng minh có thể dự đoán kỳ sau.
-            <a href="phuong-phap.html#thuat-ngu">Xem giải thích thuật ngữ</a>.
-          </p>
-        </section>
 
-        <section class="panel audit-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-kicker">Tín hiệu riêng của sản phẩm đang chọn</p>
-              <h3>Các phép kiểm đang nói gì?</h3>
+          <div class="evidence-primary conclusion-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Bước 1 - kiểm tra nền</p>
+                <h4>Kết quả có gần phân bố đều không?</h4>
+              </div>
+              <span id="test-verdict" class="verdict">...</span>
             </div>
-            <span id="audit-product-verdict" class="verdict">...</span>
+            <div class="conclusion-layout">
+              <p id="test-explanation" class="big-explanation">...</p>
+              <div class="test-metrics" id="test-metrics"></div>
+            </div>
+            <p class="method-note">
+              "Mức bất thường" nhỏ chỉ nói dữ liệu khó phù hợp với mốc so sánh.
+              Nó không cho biết sai lệch lớn đến đâu và không chứng minh có thể dự đoán kỳ sau.
+              <a href="phuong-phap.html#thuat-ngu">Xem giải thích thuật ngữ</a>.
+            </p>
           </div>
-          <p id="audit-product-conclusion" class="method-note">
-            Đang đọc các kiểm định phân bố, chuỗi thời gian và đồng xuất hiện.
-          </p>
-          <div id="audit-product-metrics" class="audit-mini-grid"></div>
-          <div id="audit-test-list" class="audit-test-list"></div>
-          <details class="technical-details">
-            <summary>Thuật toán đang chạy và thuật toán chưa chạy</summary>
-            <div id="audit-method-catalog"></div>
+
+          <details class="evidence-audit">
+            <summary>
+              <div>
+                <span>Bước 2 - kiểm định mở rộng</span>
+                <strong>Các phép kiểm khác có phát hiện tín hiệu cần theo dõi không?</strong>
+              </div>
+              <span id="audit-product-verdict" class="verdict">...</span>
+            </summary>
+            <div class="evidence-audit-body audit-panel">
+              <p id="audit-product-conclusion" class="method-note">
+                Đang đọc các kiểm định phân bố, chuỗi thời gian và đồng xuất hiện.
+              </p>
+              <div id="audit-product-metrics" class="audit-mini-grid"></div>
+              <div id="audit-test-list" class="audit-test-list"></div>
+              <details class="technical-details">
+                <summary>Thuật toán đang chạy và thuật toán chưa chạy</summary>
+                <div id="audit-method-catalog"></div>
+              </details>
+            </div>
           </details>
         </section>
 

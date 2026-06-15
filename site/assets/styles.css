@@ -1192,6 +1192,44 @@ a {
   margin-bottom: 6px;
 }
 
+.product-evidence {
+  display: grid;
+  gap: 18px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.product-evidence-heading {
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 0.75fr);
+  gap: 40px;
+  align-items: end;
+  padding: 28px 28px 0;
+}
+
+.product-evidence-heading h3 {
+  margin: 4px 0 0;
+  font-size: 28px;
+}
+
+.product-evidence-heading > p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.evidence-primary {
+  padding: 28px;
+}
+
+.evidence-primary .panel-heading h4 {
+  margin: 0;
+  font-size: 25px;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
 .conclusion-panel {
   overflow: hidden;
   background:
@@ -1278,6 +1316,44 @@ a {
   background:
     radial-gradient(circle at 0 0, rgb(217 255 112 / 14%), transparent 28%),
     var(--paper);
+}
+
+.evidence-audit {
+  border-top: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 0 0, rgb(217 255 112 / 10%), transparent 24%),
+    rgb(246 243 234 / 72%);
+}
+
+.evidence-audit > summary {
+  display: flex;
+  min-height: 94px;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 28px;
+  cursor: pointer;
+}
+
+.evidence-audit > summary > div {
+  display: grid;
+  gap: 5px;
+}
+
+.evidence-audit > summary > div > span {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.evidence-audit > summary strong {
+  font-size: 17px;
+}
+
+.evidence-audit-body {
+  padding: 0 28px 28px;
 }
 
 .audit-mini-grid {
@@ -2996,6 +3072,16 @@ a {
   .stance-verdict {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .product-evidence-heading {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .evidence-audit > summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .backtest-overview-details summary {
