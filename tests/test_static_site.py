@@ -17,7 +17,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert 'id="kiem-dinh"' in index
-    assert "assets/app.js?v=20260615-6" in index
+    assert "assets/app.js?v=20260615-7" in index
     assert "archive-summary-heading" in index
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260614-2" in data_page
@@ -66,6 +66,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "Kiểm định chênh lệch ghép cặp" in method_page
     assert "tests/test_prediction_ledger.py" in method_page
     assert "renderBacktestOverview" in app_script
+    assert "cặp chiến lược - sản phẩm vượt tiêu chí" in app_script
     assert "Xem chi tiết 8 báo cáo backtest" in index
     assert "Toàn hệ thống - khả năng dự báo" in index
     assert "Từ kết luận nhanh đến kiểm định chi tiết" in index
@@ -73,6 +74,8 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "audit-log-visual" in index
     assert "audit-log.jsonl" in index
     assert "audit-summary.json" in data_page
+    assert "analysis-export.json" in data_page
+    assert "Gói phân tích đầy đủ cho Data Analytics AI" in data_page
     assert "display: block;\n  height: 100%;" in styles
     assert "grid-template-columns: auto minmax(0, 1fr)" in styles
     assert "font-size: clamp(36px, 4.5vw, 52px);" in styles
@@ -100,12 +103,22 @@ def test_generated_site_data_matches_manifest() -> None:
     predictions = json.loads((data_root / "predictions.json").read_text(encoding="utf-8"))
     audit_summary = json.loads((data_root / "audit-summary.json").read_text(encoding="utf-8"))
     audit_log = (data_root / "audit-log.jsonl").read_text(encoding="utf-8")
+    analysis_export = json.loads(
+        (data_root / "analysis-export.json").read_text(encoding="utf-8")
+    )
 
     assert manifest["draw_rows"] >= manifest["confirmed_rows"]
+    assert manifest["analysis_export"]["path"] == "data/analysis-export.json"
     assert predictions["model_version"]
     assert manifest["fairness_audit"]["test_count"] == audit_summary["summary"]["test_count"]
     assert audit_summary["suite_version"] == "1.0.0"
     assert audit_log
+    assert analysis_export["export_type"] == "vietlott_research_analysis"
+    assert analysis_export["manifest"] == manifest
+    assert analysis_export["predictions"] == predictions
+    assert analysis_export["audit_summary"] == audit_summary
+    assert len(analysis_export["product_reports"]) == len(manifest["products"])
+    assert analysis_export["audit_events"]
     for product in manifest["products"]:
         report = json.loads(
             (data_root / "products" / f"{product['slug']}.json").read_text(encoding="utf-8")

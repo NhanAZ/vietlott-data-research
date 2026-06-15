@@ -51,6 +51,7 @@
         <a href="#nguon">Nguồn dữ liệu</a>
         <a href="#schema">Schema</a>
         <a href="#tai">Tải và đọc</a>
+        <a href="#xuat-ai">Gói phân tích cho AI</a>
         <a href="#tai-lap">Tái lập báo cáo</a>
         <a href="#phap-ly">Pháp lý và trách nhiệm</a>
       </aside>
@@ -146,6 +147,9 @@
             <a href="data/audit-log.jsonl">
               <span>Log kiểm định</span><strong>audit-log.jsonl</strong>
             </a>
+            <a href="data/analysis-export.json">
+              <span>Toàn bộ dữ liệu phân tích trên web</span><strong>analysis-export.json</strong>
+            </a>
           </div>
           <p>Kết hợp các phân vùng thành hai CSV làm việc</p>
           <pre><code>vietlott-repository-data hydrate --source-dir datasets --destination-dir data</code></pre>
@@ -159,8 +163,49 @@ draws = pd.read_csv(
 sample = draws.loc[draws["draw_status"] == "confirmed"].copy()</code></pre>
         </section>
 
-        <section id="tai-lap">
+        <section id="xuat-ai">
           <p class="article-index">05</p>
+          <h2>Gói phân tích đầy đủ cho Data Analytics AI</h2>
+          <p>
+            Website là bản đọc nhanh. Tệp
+            <a href="data/analysis-export.json"><code>analysis-export.json</code></a>
+            là điểm vào dành cho phần mềm phân tích và AI. Tệp gom toàn bộ dữ liệu
+            dẫn xuất quan trọng đang dùng trên web vào một cấu trúc có từ điển trường,
+            mô tả phương pháp và cảnh báo diễn giải.
+          </p>
+          <div class="schema-grid">
+            <article><strong>8 báo cáo sản phẩm</strong><code>product_reports</code></article>
+            <article><strong>Backtest và công thức</strong><code>methodology.backtest</code></article>
+            <article><strong>Sổ dự đoán</strong><code>predictions</code></article>
+            <article><strong>Kiểm định và log</strong><code>audit_summary, audit_events</code></article>
+          </div>
+          <p>
+            Gói này không nhúng hàng trăm nghìn kỳ quay thô để tránh tạo một tệp quá
+            lớn. Trường <code>source_files</code> chỉ tới CSV kỳ quay, giải thưởng,
+            thời tiết và sổ dự đoán gốc. AI nên đọc gói JSON trước để hiểu cấu trúc,
+            sau đó tải CSV khi cần tính lại ở cấp từng kỳ.
+          </p>
+          <pre><code>import json
+
+with open("analysis-export.json", encoding="utf-8") as handle:
+    research = json.load(handle)
+
+power = research["product_reports"]["power655"]
+backtest = power["backtest"]
+audit_rows = [
+    row for row in research["audit_events"]
+    if row["product"] == "power655"
+]</code></pre>
+          <p class="callout evidence">
+            <strong>Không giấu thuật toán trong tệp xuất</strong>
+            Phần <code>methodology</code> ghi quy tắc backtest và giới hạn hiện tại.
+            Mỗi báo cáo sản phẩm vẫn giữ nguyên tham số, p-value, q-value, kích thước
+            hiệu ứng, phân phối điểm và dữ liệu biểu đồ mà giao diện đã sử dụng.
+          </p>
+        </section>
+
+        <section id="tai-lap">
+          <p class="article-index">06</p>
           <h2>Tái lập website và báo cáo</h2>
           <p>
             Toàn bộ JSON biểu đồ và sổ dự đoán được tạo bởi package
@@ -179,7 +224,7 @@ sample = draws.loc[draws["draw_status"] == "confirmed"].copy()</code></pre>
         </section>
 
         <section id="phap-ly">
-          <p class="article-index">06</p>
+          <p class="article-index">07</p>
           <h2>Pháp lý, nguồn gốc và trách nhiệm</h2>
           <p>
             Dự án lưu sự kiện kết quả và thông tin nguồn công khai cho mục đích cá

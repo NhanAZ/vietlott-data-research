@@ -171,7 +171,10 @@ function renderBacktestOverview(reports) {
   ), 0);
   text(
     "backtest-overview-summary",
-    `${winningStrategies} chiến lược vượt tiêu chí trên ${reports.length} sản phẩm`,
+    `${reports.filter((report) => (
+      report.backtest.comparison?.beats_baseline
+      || report.backtest.audit_comparison?.beats_baseline
+    )).length}/${reports.length} sản phẩm; ${winningStrategies} cặp chiến lược - sản phẩm vượt tiêu chí`,
   );
   container.innerHTML = `
     <p class="backtest-overview-note">
