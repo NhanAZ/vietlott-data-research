@@ -2150,6 +2150,71 @@ a {
   text-transform: uppercase;
 }
 
+.backtest-method-details {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgb(255 253 247 / 72%);
+}
+
+.backtest-method-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 16px;
+  cursor: pointer;
+  color: #174b47;
+  font-weight: 850;
+}
+
+.backtest-method-details summary small {
+  color: #74817e;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.backtest-method-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.backtest-method-body ol {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding-left: 22px;
+}
+
+.backtest-method-body li {
+  padding-left: 4px;
+  color: #64716f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.backtest-method-body li strong,
+.backtest-method-body li span {
+  display: block;
+}
+
+.backtest-method-body li strong {
+  color: #173f3c;
+}
+
+.backtest-method-body p {
+  margin: 0;
+  color: #64716f;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.backtest-method-body a {
+  color: #174b47;
+  font-weight: 800;
+}
+
 .technical-details {
   margin-top: 12px;
   color: #64716f;
@@ -3174,6 +3239,16 @@ a {
 
   .backtest-score {
     grid-template-columns: 1fr;
+  }
+
+  .backtest-method-details summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .backtest-method-details summary small {
+    text-align: left;
   }
 
   .backtest-vs {

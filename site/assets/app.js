@@ -1085,6 +1085,15 @@ function renderBacktest(backtest, kind) {
   const conclusion = modelRows.some((row) => row.comparison?.beats_baseline)
     ? "Có ít nhất một strategy vượt mốc ngẫu nhiên trong backtest, nhưng vẫn phải xác nhận bằng dự đoán đã lưu trước."
     : "Kết luận: các strategy hiện tại chưa tốt hơn chọn ngẫu nhiên một cách đáng tin cậy.";
+  const scoreDescription = kind === "number_set"
+    ? `
+      <li><strong>Kết hợp ba dấu hiệu</strong><span>0,40 × z ngắn hạn + 0,30 × z gần - 0,15 × z toàn lịch sử + 0,15 × độ vắng đã chuẩn hóa.</span></li>
+      <li><strong>Tín hiệu kiểm định</strong><span>0,45 × độ nóng dài hạn + 0,25 × gần + 0,15 × ngắn + 0,15 × áp lực đồng xuất hiện, sau đó chọn tham lam có xét cặp số.</span></li>
+      <li><strong>Điểm mỗi kỳ</strong><span>Số lượng số chính dự đoán trùng với kết quả thật. Số đặc biệt chưa được đưa vào điểm backtest này.</span></li>`
+    : `
+      <li><strong>Kết hợp ba dấu hiệu</strong><span>Chấm riêng từng vị trí bằng 0,40 × z ngắn hạn + 0,30 × z gần - 0,20 × z toàn lịch sử.</span></li>
+      <li><strong>Tín hiệu kiểm định</strong><span>Chấm riêng từng vị trí bằng 0,45 × độ nóng dài hạn + 0,35 × gần + 0,20 × ngắn.</span></li>
+      <li><strong>Điểm mỗi kỳ</strong><span>Số vị trí khớp nhiều nhất giữa chuỗi dự đoán và các kết quả công bố trong kỳ.</span></li>`;
   container.innerHTML = `
     <div class="backtest-score">
       ${modelRows.map((row) => {
@@ -1116,7 +1125,28 @@ function renderBacktest(backtest, kind) {
           ${formatPValue(row.comparison.approximate_p_value)} trên
           ${numberFormatter.format(backtest.samples)} kỳ kiểm tra.
         </p>`;
-    }).join("")}`;
+    }).join("")}
+    <details class="backtest-method-details">
+      <summary>
+        <span>Phương pháp và công thức của báo cáo này</span>
+        <small>Walk-forward, baseline, cách chấm và ngưỡng kết luận</small>
+      </summary>
+      <div class="backtest-method-body">
+        <ol>
+          <li><strong>Chia dữ liệu theo thời gian</strong><span>Tại kỳ t, thuật toán chỉ nhìn các kỳ trước t. Sau khi chấm xong kỳ t, kết quả kỳ đó mới được thêm vào lịch sử để dự đoán kỳ kế tiếp.</span></li>
+          <li><strong>Phạm vi kiểm tra</strong><span>${numberFormatter.format(backtest.samples)} kỳ, từ mã kỳ ${escapeHtml(backtest.first_test_draw_id)} đến ${escapeHtml(backtest.latest_test_draw_id)}. Cửa sổ ngắn ${numberFormatter.format(backtest.short_window_draws)} kỳ, cửa sổ gần ${numberFormatter.format(backtest.recent_window_draws)} kỳ${backtest.pair_window_draws ? `, cửa sổ cặp ${numberFormatter.format(backtest.pair_window_draws)} kỳ` : ""}.</span></li>
+          ${scoreDescription}
+          <li><strong>Baseline đồng đều có seed</strong><span>Mỗi kỳ tạo một lựa chọn đồng đều có thể tái lập từ SHA-256 của sản phẩm, mã kỳ, phiên bản mô hình và nhãn backtest.</span></li>
+          <li><strong>So sánh ghép cặp</strong><span>Với mỗi kỳ tính d = điểm chiến lược - điểm baseline. Báo cáo lấy trung bình d và tính z = trung bình(d) / (độ lệch chuẩn(d) / √n), rồi lấy p hai phía từ phân bố chuẩn.</span></li>
+          <li><strong>Điều kiện hiện tại</strong><span>Chỉ ghi “vượt baseline” khi trung bình d &gt; 0 và p &lt; 0,05. Đây là ngưỡng thăm dò, chưa hiệu chỉnh cho việc thử nhiều sản phẩm và nhiều chiến lược.</span></li>
+        </ol>
+        <p>
+          Mã triển khai nằm trong
+          <a href="https://github.com/NhanAZ/vietlott-data-research/blob/main/src/vietlott_analytics/predictions.py">src/vietlott_analytics/predictions.py</a>.
+          Báo cáo hiện backtest hai chiến lược ứng viên là “Kết hợp ba dấu hiệu” và “Tín hiệu kiểm định”; “Tần suất cửa sổ gần” hiện có trong sổ dự đoán nhưng chưa nằm trong phép so sánh backtest này.
+        </p>
+      </div>
+    </details>`;
 }
 
 function renderPrizeReport(prizes) {

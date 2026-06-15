@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,500;1,400;1,500&amp;display=swap">
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/3.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css">
-  <link rel="stylesheet" href="assets/styles.css?v=20260615-7">
+  <link rel="stylesheet" href="assets/styles.css?v=20260615-8">
 </head>
 <body>
   <a class="skip-link" href="#main">Bỏ qua điều hướng</a>
@@ -235,6 +235,92 @@
             phương pháp chỉ được dùng dữ liệu trước <em>t</em>. Mỗi dự báo được so
             với cách chọn ngẫu nhiên độc lập. Chênh lệch số trùng được kiểm tra xem
             có đủ lớn để khó giải thích bằng may rủi hay không.
+          </p>
+          <h3>Backtest đang chạy chính xác những gì</h3>
+          <ol class="research-list">
+            <li>
+              Tập số như Mega, Power, Lotto và Keno dùng tối đa 1.000 kỳ kiểm tra,
+              riêng Keno tối đa 5.000 kỳ. Lịch sử tối thiểu trước lần kiểm tra đầu
+              là số nhỏ hơn giữa 200 kỳ và một phần ba toàn bộ lịch sử, nhưng không
+              thấp hơn 30 kỳ.
+            </li>
+            <li>
+              Trò chơi theo chuỗi chữ số dùng tối đa 1.000 kỳ kiểm tra, riêng
+              Bingo18 tối đa 5.000 kỳ. Lịch sử tối thiểu được tính tương tự với
+              mốc trên là 100 kỳ.
+            </li>
+            <li>
+              Sau khi dự đoán và chấm kỳ <em>t</em>, kết quả thật của kỳ đó mới
+              được thêm vào bộ đếm. Vì vậy dữ liệu tương lai không đi ngược vào
+              bước tạo dự đoán.
+            </li>
+          </ol>
+          <h3>Công thức cho sản phẩm chọn tập số</h3>
+          <p>
+            Với mỗi số, chương trình tính độ lệch chuẩn hóa
+            <code>z = (số lần xuất hiện - số lần kỳ vọng) / độ lệch chuẩn kỳ vọng</code>
+            trên toàn lịch sử, cửa sổ gần và 50 kỳ gần nhất. Cửa sổ gần là 200 kỳ,
+            riêng Keno là 500 kỳ trong backtest hiện tại.
+          </p>
+          <div class="formula-card">
+            <span>Kết hợp ba dấu hiệu</span>
+            <strong>0,40 × z_ngắn + 0,30 × z_gần - 0,15 × z_dài + 0,15 × (độ_vắng - 1)</strong>
+          </div>
+          <div class="formula-card">
+            <span>Tín hiệu kiểm định công bằng</span>
+            <strong>0,45 × nóng_dài + 0,25 × gần + 0,15 × ngắn + 0,15 × áp_lực_cặp</strong>
+          </div>
+          <p>
+            Các tín hiệu của phương pháp kiểm định được chặn trong đoạn từ -4 đến
+            4 để một giá trị cực đoan không chi phối toàn bộ điểm. Áp lực cặp là
+            trung bình của tối đa năm độ lệch đồng xuất hiện dương mạnh nhất liên
+            quan tới số đó. Thuật toán chọn lần lượt số có điểm cao nhất và cộng
+            thêm <code>0,12 × thưởng_cặp</code> với các số đã chọn.
+          </p>
+          <h3>Công thức cho sản phẩm theo vị trí chữ số</h3>
+          <p>
+            Mỗi vị trí được chấm riêng. Chiến lược cân bằng dùng
+            <code>0,40 × z_ngắn + 0,30 × z_gần - 0,20 × z_dài</code>.
+            Chiến lược kiểm định dùng
+            <code>0,45 × nóng_dài + 0,35 × gần + 0,20 × ngắn</code>.
+            Chữ số có điểm cao nhất ở từng vị trí tạo thành chuỗi dự đoán.
+          </p>
+          <h3>Baseline, điểm số và phép kiểm</h3>
+          <p>
+            Baseline chọn đồng đều không hoàn lại đối với tập số và chọn đồng đều
+            từng vị trí đối với chuỗi chữ số. Seed được tạo bằng SHA-256 từ sản
+            phẩm, mã kỳ, phiên bản mô hình và nhãn backtest. Seed chỉ giúp tái lập
+            đúng lựa chọn, không làm baseline bớt ngẫu nhiên theo phân bố mục tiêu.
+          </p>
+          <p>
+            Với tập số, điểm là số lượng số chính trùng kết quả. Số đặc biệt chưa
+            được tính trong backtest hiện tại. Với chuỗi chữ số, điểm là số vị trí
+            khớp nhiều nhất giữa dự đoán và các kết quả công bố trong kỳ. Tại mỗi
+            kỳ, chương trình tính <code>d = điểm_chiến_lược - điểm_baseline</code>.
+          </p>
+          <div class="formula-card">
+            <span>Kiểm định chênh lệch ghép cặp</span>
+            <strong>z = trung_bình(d) / (độ_lệch_chuẩn(d) / √n)</strong>
+          </div>
+          <p>
+            p-value hai phía được xấp xỉ bằng phân bố chuẩn. Một chiến lược chỉ
+            được đánh dấu vượt baseline khi trung bình chênh lệch dương và
+            <code>p &lt; 0,05</code>. Báo cáo hiện so hai chiến lược ứng viên là
+            “Kết hợp ba dấu hiệu” và “Tín hiệu kiểm định công bằng”. Chiến lược
+            “Tần suất cửa sổ gần” có trong sổ dự đoán nhưng chưa được tính trong
+            báo cáo backtest.
+          </p>
+          <p class="callout warning">
+            Ngưỡng hiện tại chưa hiệu chỉnh cho việc thử nhiều chiến lược trên
+            nhiều sản phẩm. Vì vậy con số 2/8 là tín hiệu thăm dò, không phải bằng
+            chứng đã xác nhận. Phiên bản tiếp theo nên công bố khoảng tin cậy,
+            hiệu chỉnh multiple testing và một tập xác nhận ngoài mẫu riêng.
+          </p>
+          <p>
+            Toàn bộ triển khai có thể kiểm tra trực tiếp tại
+            <a href="https://github.com/NhanAZ/vietlott-data-research/blob/main/src/vietlott_analytics/predictions.py"><code>src/vietlott_analytics/predictions.py</code></a>
+            và các kiểm thử tại
+            <a href="https://github.com/NhanAZ/vietlott-data-research/blob/main/tests/test_prediction_ledger.py"><code>tests/test_prediction_ledger.py</code></a>.
           </p>
           <p class="callout">
             Backtest tốt vẫn có thể là overfitting. Bằng chứng mạnh hơn phải đến từ

@@ -17,12 +17,12 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert 'id="kiem-dinh"' in index
-    assert "assets/app.js?v=20260615-5" in index
+    assert "assets/app.js?v=20260615-6" in index
     assert "archive-summary-heading" in index
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260614-2" in data_page
     for page in (index, method_page, data_page):
-        assert "assets/styles.css?v=20260615-7" in page
+        assert "assets/styles.css?v=20260615-8" in page
         assert "assets/favicon.svg?v=20260614-9" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
@@ -59,6 +59,12 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "prediction-history-list" in index
     assert "Dự đoán gốc so với kết quả thật" in index
     assert "backtest-evidence" in app_script
+    assert "Phương pháp và công thức của báo cáo này" in app_script
+    assert "chưa hiệu chỉnh cho việc thử nhiều sản phẩm và nhiều chiến lược" in app_script
+    assert "src/vietlott_analytics/predictions.py" in app_script
+    assert "Backtest đang chạy chính xác những gì" in method_page
+    assert "Kiểm định chênh lệch ghép cặp" in method_page
+    assert "tests/test_prediction_ledger.py" in method_page
     assert "renderBacktestOverview" in app_script
     assert "Xem chi tiết 8 báo cáo backtest" in index
     assert "Toàn hệ thống - khả năng dự báo" in index
