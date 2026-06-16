@@ -37,6 +37,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Đồng bộ nhánh main mới nhất
+        run: git pull --ff-only origin main
+
       - name: Cài Python
         uses: actions/setup-python@v6
         with:

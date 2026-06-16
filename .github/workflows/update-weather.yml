@@ -27,6 +27,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Đồng bộ nhánh main mới nhất
+        run: git pull --ff-only origin main
+
       - name: Cài Python
         uses: actions/setup-python@v6
         with:
@@ -96,7 +99,7 @@ jobs:
         id: commit
         shell: bash
         run: |
-          git add datasets/weather predictions site/data
+          git add datasets/weather datasets/metadata predictions site/data
           if git diff --cached --quiet; then
             echo "Không có ngày khí tượng mới"
             echo "changed=false" >> "$GITHUB_OUTPUT"
