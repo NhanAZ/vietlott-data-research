@@ -2172,6 +2172,10 @@ a {
   gap: 18px;
 }
 
+.backtest-prize-grid {
+  align-items: start;
+}
+
 .number-map-layout {
   display: grid;
   grid-template-columns: 1.55fr 0.75fr;

@@ -24,7 +24,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260615-1" in data_page
     for page in (index, method_page, data_page):
-        assert "assets/styles.css?v=20260616-5" in page
+        assert "assets/styles.css?v=20260617-1" in page
         assert "assets/favicon.svg?v=20260614-9" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
@@ -36,6 +36,8 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "archive-summary-heading" in styles
     assert "archive-overview-grid" in styles
     assert "prediction-latest-panel" in styles
+    assert "backtest-prize-grid" in index
+    assert ".backtest-prize-grid" in styles
     assert ".prediction-latest-panel:not([open]) > .prediction-latest-list" in styles
     assert '--font-display: "Noto Serif"' in styles
     assert "Georgia" not in styles
