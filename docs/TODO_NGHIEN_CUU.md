@@ -325,10 +325,15 @@ file để giữ lại dấu vết thay đổi.
     `docs/AUDIT_CHANGE_POINT_SCAN.md` và khóa bằng unit test, documentation test,
     static-site test.
 
-- [ ] `AUDIT-014` Triển khai phép kiểm đồng xuất hiện Keno có thể mở rộng.
-  - Hiện phép kiểm bị bỏ qua vì có 54.089.580 quan sát cặp
-  - Ưu tiên công thức đếm gộp, sparse matrix hoặc mô phỏng có kiểm soát bộ nhớ
-  - Không lấy mẫu tùy tiện nếu không định lượng sai số lấy mẫu
+- [x] `AUDIT-014` Triển khai phép kiểm đồng xuất hiện Keno có thể mở rộng.
+  - Hoàn thành ngày 18/06/2026.
+  - Thay ngưỡng skip theo số quan sát cặp bằng bộ đếm `dense_pair_index_vector`.
+  - Keno hiện đếm đầy đủ `C(80, 2) = 3.160` cặp trên hơn 54 triệu quan sát cặp,
+    không lấy mẫu tùy tiện và công bố `no_sampling = true`.
+  - JSON có `pair_observations`, `observed_pair_observations`, `top_pairs` và
+    tỷ lệ cặp cao nhất so với kỳ vọng.
+  - Tài liệu hóa trong `docs/AUDIT_KENO_PAIR_COOCCURRENCE.md`; khóa bằng unit test,
+    documentation test và static-site test.
 
 - [ ] `AUDIT-015` Thêm kiểm tra độ nhạy khi loại từng nguồn dữ liệu.
 - [ ] `AUDIT-016` Thêm kiểm tra độ nhạy khi loại các kỳ chưa xác nhận và vùng lịch sử

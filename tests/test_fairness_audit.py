@@ -8,6 +8,7 @@ import pytest
 from vietlott_analytics.catalog import PRODUCTS
 from vietlott_analytics.fairness import (
     EFFECT_THRESHOLD_REGISTRY,
+    _pair_co_occurrence_test,
     audit_log_events,
     build_product_audit,
     finalize_audits,
@@ -141,6 +142,45 @@ def test_number_audit_contains_lightweight_fairness_tests() -> None:
     strongest = scan["strongest_candidate"]
     assert 0 < strongest["candidate_fraction"] < 1
     assert "adjusted_p_value" in strongest
+
+
+def test_keno_pair_co_occurrence_uses_full_dense_counter_above_old_limit() -> None:
+    product = PRODUCTS["keno"]
+    observations = [
+        Observation(
+            draw_id=str(index + 1).zfill(7),
+            draw_date=date(2026, 1, 1) + timedelta(days=index // 288),
+            values=tuple(
+                sorted(((index * 17 + offset * 3) % 80) + 1 for offset in range(20))
+            ),
+        )
+        for index in range(15_800)
+    ]
+    dataset = ProductDataset(
+        product=product,
+        observations=observations,
+        source_counts=Counter({"synthetic": len(observations)}),
+        status_counts=Counter({"confirmed": len(observations)}),
+        validation_counts=Counter({"valid": len(observations)}),
+    )
+
+    test = _pair_co_occurrence_test(dataset)
+
+    assert test is not None
+    assert test["id"] == "number_pair_co_occurrence"
+    assert test["status"] == "pending"
+    assert test["degrees_of_freedom"] == 3159
+    assert test["p_value"] is not None
+    assert test["power_analysis"]["status"] == "available"
+    parameters = test["parameters"]
+    assert parameters["counting_method"] == "dense_pair_index_vector"
+    assert parameters["no_sampling"] is True
+    assert parameters["pairs"] == 3160
+    assert parameters["pair_space"] == 3160
+    assert parameters["pair_observations"] > 3_000_000
+    assert parameters["observed_pair_observations"] == parameters["pair_observations"]
+    assert len(parameters["top_pairs"]) == 5
+    assert parameters["highest_count_pair"] == parameters["top_pairs"][0]["pair"]
 
 
 def test_finalize_audits_adds_global_correction_and_jsonl_events() -> None:

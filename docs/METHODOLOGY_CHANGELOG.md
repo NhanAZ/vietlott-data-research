@@ -24,6 +24,8 @@ backtest hoặc cách đọc website. Thay đổi giao diện thuần túy khôn
   `parameters.change_point_scan`, quét các điểm cắt 20% đến 80% đã đăng ký trước
 - P-value chính của change-point scan dùng Bonferroni theo số điểm ứng viên, còn
   `raw_p_value` chỉ là trường giải thích ứng viên mạnh nhất
+- Thay skip đồng xuất hiện Keno bằng `dense_pair_index_vector`, đếm đầy đủ 3.160
+  cặp hợp lệ trên toàn bộ lịch sử và công bố `no_sampling = true`
 
 ## 15/06/2026
 

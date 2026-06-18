@@ -297,6 +297,23 @@ def test_generated_site_data_matches_manifest() -> None:
                 assert len(scan["candidates"]) == scan["candidate_count"]
                 assert scan["adjusted_p_value"] >= scan["raw_p_value"]
                 assert scan["no_unadjusted_search_decision"] is True
+        if product["slug"] == "keno":
+            pair_test = next(
+                item
+                for item in report["audit"]["tests"]
+                if item["id"] == "number_pair_co_occurrence"
+            )
+            assert pair_test["status"] != "skipped"
+            assert pair_test["degrees_of_freedom"] == 3159
+            pair_parameters = pair_test["parameters"]
+            assert pair_parameters["counting_method"] == "dense_pair_index_vector"
+            assert pair_parameters["no_sampling"] is True
+            assert pair_parameters["pairs"] == 3160
+            assert pair_parameters["pair_observations"] > 50_000_000
+            assert pair_parameters["observed_pair_observations"] == pair_parameters[
+                "pair_observations"
+            ]
+            assert len(pair_parameters["top_pairs"]) == 5
         if product["slug"] in {"max3d", "max4d"}:
             position_test = next(
                 item

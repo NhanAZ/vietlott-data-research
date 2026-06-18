@@ -285,6 +285,8 @@ BLOCK_BOOTSTRAP_CONFIDENCE_LEVEL = 0.95
 CHANGE_POINT_CANDIDATE_FRACTIONS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 CHANGE_POINT_MIN_VALUES = 30
 CHANGE_POINT_MIN_SEGMENT_VALUES = 10
+PAIR_COOCCURRENCE_MAX_PAIR_SPACE = 250_000
+PAIR_COOCCURRENCE_TOP_PAIRS = 5
 
 EFFECT_THRESHOLD_REGISTRY = [
     {
@@ -418,7 +420,7 @@ EFFECT_THRESHOLD_REGISTRY = [
         "effect_size_name": "pair co-occurrence w",
         "threshold": 0.05,
         "unit": "w = sqrt(chi_square / pair observations)",
-        "scope": "Kiểm định đồng xuất hiện cặp số khi workflow đủ bộ nhớ để chạy.",
+        "scope": "Kiểm định đồng xuất hiện cặp số bằng bộ đếm cặp đầy đủ.",
         "reference_or_rationale": (
             "Giữ cùng mốc 0,05 với kiểm định phân bố, nhưng diễn giải thận trọng hơn "
             "vì các cặp trong cùng một kỳ không độc lập hoàn toàn."
@@ -1542,37 +1544,100 @@ def _current_gap_test(dataset: ProductDataset) -> dict[str, Any] | None:
     )
 
 
+def _pair_vector_index(left: int, right: int, pool_min: int, pool_size: int) -> int:
+    left_index = left - pool_min
+    right_index = right - pool_min
+    return (
+        left_index * (2 * pool_size - left_index - 1) // 2
+        + (right_index - left_index - 1)
+    )
+
+
+def _dense_pair_counts(
+    dataset: ProductDataset,
+    *,
+    pool_min: int,
+    pool_max: int,
+) -> tuple[list[int], list[tuple[int, int]], int]:
+    pool = list(range(pool_min, pool_max + 1))
+    pair_labels = list(combinations(pool, 2))
+    counts = [0] * len(pair_labels)
+    observed_pair_count = 0
+    pool_size = len(pool)
+    for observation in dataset.observations:
+        values = sorted({
+            value
+            for value in observation.values
+            if pool_min <= value <= pool_max
+        })
+        observed_pair_count += math.comb(len(values), 2) if len(values) >= 2 else 0
+        for left_offset, left in enumerate(values[:-1]):
+            for right in values[left_offset + 1 :]:
+                counts[_pair_vector_index(left, right, pool_min, pool_size)] += 1
+    return counts, pair_labels, observed_pair_count
+
+
+def _top_pair_rows(
+    pair_counts: list[int],
+    pair_labels: list[tuple[int, int]],
+    *,
+    expected: float,
+) -> list[dict[str, Any]]:
+    top_indices = sorted(
+        range(len(pair_counts)),
+        key=lambda index: pair_counts[index],
+        reverse=True,
+    )[:PAIR_COOCCURRENCE_TOP_PAIRS]
+    return [
+        {
+            "pair": list(pair_labels[index]),
+            "count": pair_counts[index],
+            "expected_count": _round(expected),
+            "ratio_to_expected": _round(pair_counts[index] / expected) if expected else 0.0,
+        }
+        for index in top_indices
+    ]
+
+
 def _pair_co_occurrence_test(dataset: ProductDataset) -> dict[str, Any] | None:
     product = dataset.product
     pick_count = product.pick_count or 0
     if pick_count < 2 or product.pool_size < 2:
         return None
     total_pair_observations = len(dataset.observations) * math.comb(pick_count, 2)
-    if total_pair_observations > 3_000_000:
+    pool_min = product.pool_min or 1
+    pool_max = product.pool_max or 0
+    pair_space = math.comb(product.pool_size, 2)
+    if pair_space > PAIR_COOCCURRENCE_MAX_PAIR_SPACE:
         return _skipped_test(
             test_id="number_pair_co_occurrence",
             family="co_occurrence",
             algorithm="Co-occurrence Pair Chi-Square Test",
             label="Đồng xuất hiện của các cặp số",
             plain_language=(
-                "Tạm hoãn kiểm định cặp đầy đủ vì số cặp quá lớn cho workflow cập nhật thường xuyên."
+                "Tạm hoãn kiểm định cặp đầy đủ vì không gian cặp quá lớn cho workflow cập nhật thường xuyên."
             ),
             sample_size=len(dataset.observations),
             parameters={
+                "pair_space": pair_space,
+                "pair_space_limit": PAIR_COOCCURRENCE_MAX_PAIR_SPACE,
                 "pair_observations": total_pair_observations,
-                "limit": 3_000_000,
+                "no_sampling": True,
             },
         )
-    pair_counts: Counter[tuple[int, int]] = Counter()
-    for observation in dataset.observations:
-        pair_counts.update(combinations(sorted(observation.values), 2))
-    all_pairs = list(combinations(range(product.pool_min or 1, (product.pool_max or 0) + 1), 2))
+    pair_counts, pair_labels, observed_pair_count = _dense_pair_counts(
+        dataset,
+        pool_min=pool_min,
+        pool_max=pool_max,
+    )
     probability = pick_count * (pick_count - 1) / (product.pool_size * (product.pool_size - 1))
     expected = len(dataset.observations) * probability
     if expected <= 0:
         return None
-    statistic = sum(((pair_counts[pair] - expected) ** 2) / expected for pair in all_pairs)
-    top_pair, top_count = max(pair_counts.items(), key=lambda item: item[1])
+    statistic = sum(((count - expected) ** 2) / expected for count in pair_counts)
+    top_index = max(range(len(pair_counts)), key=pair_counts.__getitem__)
+    top_pair = pair_labels[top_index]
+    top_count = pair_counts[top_index]
     return _test_result(
         test_id="number_pair_co_occurrence",
         family="co_occurrence",
@@ -1583,8 +1648,8 @@ def _pair_co_occurrence_test(dataset: ProductDataset) -> dict[str, Any] | None:
         ),
         statistic_name="chi_square",
         statistic=statistic,
-        degrees_of_freedom=len(all_pairs) - 1,
-        p_value=_chi_square_survival_approx(statistic, len(all_pairs) - 1),
+        degrees_of_freedom=pair_space - 1,
+        p_value=_chi_square_survival_approx(statistic, pair_space - 1),
         effect_size_name="pair co-occurrence w",
         effect_size=math.sqrt(statistic / total_pair_observations)
         if total_pair_observations
@@ -1593,10 +1658,17 @@ def _pair_co_occurrence_test(dataset: ProductDataset) -> dict[str, Any] | None:
         sample_size=len(dataset.observations),
         power_sample_size=total_pair_observations,
         parameters={
-            "pairs": len(all_pairs),
+            "counting_method": "dense_pair_index_vector",
+            "no_sampling": True,
+            "pairs": pair_space,
+            "pair_space": pair_space,
+            "pair_observations": total_pair_observations,
+            "observed_pair_observations": observed_pair_count,
             "expected_count_per_pair": _round(expected),
             "highest_count_pair": list(top_pair),
             "highest_count": top_count,
+            "highest_count_ratio_to_expected": _round(top_count / expected),
+            "top_pairs": _top_pair_rows(pair_counts, pair_labels, expected=expected),
         },
     )
 

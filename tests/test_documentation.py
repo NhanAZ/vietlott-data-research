@@ -17,6 +17,7 @@ def test_research_documentation_and_issue_templates_exist() -> None:
         ROOT / "docs" / "AUDIT_PERMUTATION_CHECKS.md",
         ROOT / "docs" / "AUDIT_BLOCK_BOOTSTRAP.md",
         ROOT / "docs" / "AUDIT_CHANGE_POINT_SCAN.md",
+        ROOT / "docs" / "AUDIT_KENO_PAIR_COOCCURRENCE.md",
         ROOT / "docs" / "METHODOLOGY_CHANGELOG.md",
         ROOT / "docs" / "templates" / "BAO_CAO_KET_QUA_AM.md",
         ROOT / "docs" / "DU_DOAN_BINGO18_0171884.md",
@@ -44,6 +45,7 @@ def test_readme_links_research_documents_without_em_dash() -> None:
     assert "docs/AUDIT_PERMUTATION_CHECKS.md" in readme
     assert "docs/AUDIT_BLOCK_BOOTSTRAP.md" in readme
     assert "docs/AUDIT_CHANGE_POINT_SCAN.md" in readme
+    assert "docs/AUDIT_KENO_PAIR_COOCCURRENCE.md" in readme
     assert "docs/METHODOLOGY_CHANGELOG.md" in readme
     assert "docs/templates/BAO_CAO_KET_QUA_AM.md" in readme
     assert "docs/DU_DOAN_BINGO18_0171884.md" in readme
@@ -152,3 +154,16 @@ def test_audit_change_point_scan_documentation_has_required_fields() -> None:
     assert "bonferroni" in document
     assert "adjusted_p_value" in document
     assert "no_unadjusted_search_decision" in document
+
+
+def test_audit_keno_pair_cooccurrence_documentation_has_required_fields() -> None:
+    document = (ROOT / "docs" / "AUDIT_KENO_PAIR_COOCCURRENCE.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "number_pair_co_occurrence" in document
+    assert "dense_pair_index_vector" in document
+    assert "pair_observations" in document
+    assert "observed_pair_observations" in document
+    assert "no_sampling" in document
+    assert "top_pairs" in document
