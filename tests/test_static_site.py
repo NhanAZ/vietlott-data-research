@@ -22,9 +22,11 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "assets/app.js?v=20260618-1" in index
     assert "archive-summary-heading" in index
     assert "Sổ dự đoán toàn hệ thống" in index
-    assert "assets/docs.js?v=20260615-1" in data_page
-    for page in (index, method_page, data_page):
+    assert "assets/docs.js?v=20260618-2" in data_page
+    assert "assets/styles.css?v=20260618-2" in data_page
+    for page in (index, method_page):
         assert "assets/styles.css?v=20260618-1" in page
+    for page in (index, method_page, data_page):
         assert "assets/favicon.svg?v=20260614-9" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
