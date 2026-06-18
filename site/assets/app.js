@@ -1656,17 +1656,7 @@ function renderBacktest(backtest, kind) {
     : hasRawSignal
       ? "Có tín hiệu với p thô dưới 0,05, nhưng tín hiệu không còn đủ mạnh sau khi hiệu chỉnh toàn hệ thống."
       : "Kết luận: các chiến lược hiện tại chưa tốt hơn cách chọn đồng đều một cách đáng tin cậy.";
-  const scoreDescription = kind === "number_set"
-    ? `
-      <li><strong>Kết hợp ba dấu hiệu</strong><span>0,40 × z ngắn hạn + 0,30 × z gần - 0,15 × z toàn lịch sử + 0,15 × độ vắng đã chuẩn hóa.</span></li>
-      <li><strong>Tần suất cửa sổ gần</strong><span>0,60 × z ngắn hạn + 0,40 × z của cửa sổ gần, không dùng dữ liệu toàn lịch sử hoặc độ vắng.</span></li>
-      <li><strong>Tín hiệu kiểm định</strong><span>0,45 × độ nóng dài hạn + 0,25 × gần + 0,15 × ngắn + 0,15 × áp lực đồng xuất hiện, sau đó chọn tham lam có xét cặp số.</span></li>
-      <li><strong>Điểm mỗi kỳ</strong><span>Số lượng số chính dự đoán trùng với kết quả thật. Số đặc biệt chưa được đưa vào điểm backtest này.</span></li>`
-    : `
-      <li><strong>Kết hợp ba dấu hiệu</strong><span>Chấm riêng từng vị trí bằng 0,40 × z ngắn hạn + 0,30 × z gần - 0,20 × z toàn lịch sử.</span></li>
-      <li><strong>Tần suất cửa sổ gần</strong><span>Chấm riêng từng vị trí bằng 0,60 × z ngắn hạn + 0,40 × z của cửa sổ gần.</span></li>
-      <li><strong>Tín hiệu kiểm định</strong><span>Chấm riêng từng vị trí bằng 0,45 × độ nóng dài hạn + 0,35 × gần + 0,20 × ngắn.</span></li>
-      <li><strong>Điểm mỗi kỳ</strong><span>Số vị trí khớp nhiều nhất giữa chuỗi dự đoán và các kết quả công bố trong kỳ.</span></li>`;
+  const scoreDescription = renderBacktestScoreFormulas(backtest.score_formulas, kind);
   container.innerHTML = `
     <div class="backtest-score">
       ${modelRows.map((row) => {
@@ -1725,6 +1715,28 @@ function renderBacktest(backtest, kind) {
         </p>
       </div>
     </details>`;
+}
+
+function renderBacktestScoreFormulas(formulas, kind) {
+  if (!formulas) {
+    const score = kind === "number_set"
+      ? "Số lượng số chính dự đoán trùng với kết quả thật."
+      : "Số vị trí khớp nhiều nhất giữa chuỗi dự đoán và các kết quả công bố trong kỳ.";
+    return `<li><strong>Điểm mỗi kỳ</strong><span>${escapeHtml(score)}</span></li>`;
+  }
+  const typeLabel = formulas.product_kind === "number_set"
+    ? "Tập số dùng thước đo số chính trùng mỗi kỳ"
+    : "Chuỗi chữ số dùng thước đo vị trí trùng tốt nhất mỗi kỳ";
+  const strategyRows = (formulas.strategies || []).map((row) => `
+    <li>
+      <strong>${escapeHtml(row.label || row.strategy)}</strong>
+      <span>${escapeHtml(row.formula || "")}. ${escapeHtml(row.selection_rule || "")}</span>
+    </li>`).join("");
+  return `
+    <li><strong>Thước đo riêng</strong><span>${escapeHtml(typeLabel)}; không gộp chung với loại sản phẩm khác.</span></li>
+    <li><strong>Điểm mỗi kỳ</strong><span>${escapeHtml(formulas.per_draw_score || "")}</span></li>
+    <li><strong>Chênh lệch ghép cặp</strong><span>${escapeHtml(formulas.comparison_difference || "")}</span></li>
+    ${strategyRows}`;
 }
 
 function renderPrizeReport(prizes) {

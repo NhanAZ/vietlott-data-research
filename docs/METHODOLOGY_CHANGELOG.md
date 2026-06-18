@@ -41,6 +41,9 @@ backtest hoặc cách đọc website. Thay đổi giao diện thuần túy khôn
 - `manifest.backtest_summary.target_scope_validation` công bố trạng thái validate
   toàn hệ thống; thay đổi này không đổi công thức điểm, p-value, q-value hoặc
   kết luận, chỉ khóa mẫu so sánh
+- Thêm `backtest.score_formulas` cho từng sản phẩm, tách đơn vị
+  `main_number_hits_per_draw` của tập số khỏi `best_position_matches_per_draw`
+  của chuỗi chữ số và công bố công thức từng chiến lược bằng JSON có cấu trúc
 
 ## 15/06/2026
 

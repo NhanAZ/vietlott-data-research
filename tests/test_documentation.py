@@ -21,6 +21,7 @@ def test_research_documentation_and_issue_templates_exist() -> None:
         ROOT / "docs" / "AUDIT_CHANGE_POINT_SCAN.md",
         ROOT / "docs" / "AUDIT_KENO_PAIR_COOCCURRENCE.md",
         ROOT / "docs" / "BACKTEST_TARGET_SCOPE.md",
+        ROOT / "docs" / "BACKTEST_SCORE_FORMULAS.md",
         ROOT / "docs" / "METHODOLOGY_CHANGELOG.md",
         ROOT / "docs" / "templates" / "BAO_CAO_KET_QUA_AM.md",
         ROOT / "docs" / "DU_DOAN_BINGO18_0171884.md",
@@ -52,6 +53,7 @@ def test_readme_links_research_documents_without_em_dash() -> None:
     assert "docs/AUDIT_CHANGE_POINT_SCAN.md" in readme
     assert "docs/AUDIT_KENO_PAIR_COOCCURRENCE.md" in readme
     assert "docs/BACKTEST_TARGET_SCOPE.md" in readme
+    assert "docs/BACKTEST_SCORE_FORMULAS.md" in readme
     assert "docs/METHODOLOGY_CHANGELOG.md" in readme
     assert "docs/templates/BAO_CAO_KET_QUA_AM.md" in readme
     assert "docs/DU_DOAN_BINGO18_0171884.md" in readme
@@ -209,3 +211,15 @@ def test_backtest_target_scope_documentation_has_required_fields() -> None:
     assert "target_draw_count" in document
     assert "target_draw_ids_sha256" in document
     assert "no_strategy_specific_filtering" in document
+
+
+def test_backtest_score_formula_documentation_has_required_fields() -> None:
+    document = (ROOT / "docs" / "BACKTEST_SCORE_FORMULAS.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "score_formulas" in document
+    assert "main_number_hits_per_draw" in document
+    assert "best_position_matches_per_draw" in document
+    assert "comparison_difference" in document
+    assert "special_numbers_not_scored_in_backtest" in document

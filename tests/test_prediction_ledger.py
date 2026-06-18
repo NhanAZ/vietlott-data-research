@@ -38,6 +38,30 @@ def _dataset(draws: int) -> ProductDataset:
     )
 
 
+def _digit_dataset(draws: int) -> ProductDataset:
+    product = PRODUCTS["max3d"]
+    start = date(2024, 1, 1)
+    observations = [
+        Observation(
+            draw_id=str(index + 1).zfill(5),
+            draw_date=start + timedelta(days=index),
+            outcomes=(
+                f"{index % 10}{(index + 3) % 10}{(index + 7) % 10}",
+                f"{(index + 5) % 10}{(index + 1) % 10}{(index + 8) % 10}",
+            ),
+        )
+        for index in range(draws)
+    ]
+    return ProductDataset(
+        product=product,
+        observations=observations,
+        source_counts=Counter({"vietlott.vn": draws}),
+        status_counts=Counter({"confirmed": draws}),
+        validation_counts=Counter({"valid": draws}),
+        latest_fetched_at=f"2024-03-{min(draws, 28):02d}T00:00:00+00:00",
+    )
+
+
 def test_prediction_ledger_is_idempotent_and_appends_evaluations(tmp_path) -> None:
     path = tmp_path / "ledger.jsonl"
     ledger = PredictionLedger.load(path)
@@ -179,6 +203,20 @@ def test_walk_forward_backtest_reports_uniform_baseline() -> None:
     assert report["baseline"]["strategy"] == "uniform_exact_expectation"
     assert report["baseline"]["method"] == "exact_hypergeometric_expectation"
     assert report["baseline"]["average_hits"] == 0.8
+    formulas = report["score_formulas"]
+    assert formulas["product_kind"] == "number_set"
+    assert formulas["score_unit"] == "main_number_hits_per_draw"
+    assert formulas["comparison_metric"] == "mean_hit_difference"
+    assert formulas["special_numbers_policy"] == "special_numbers_not_scored_in_backtest"
+    assert {row["strategy"] for row in formulas["strategies"]} == {
+        "balanced_signal",
+        "recent_frequency",
+        "audit_signal",
+    }
+    assert any(
+        "(overdue_ratio - 1)" in row["formula"]
+        for row in formulas["strategies"]
+    )
     assert report["recent_model"]["strategy"] == "recent_frequency"
     assert report["audit_model"]["strategy"] == "audit_signal"
     assert "recent_comparison" in report
@@ -202,6 +240,25 @@ def test_walk_forward_backtest_reports_uniform_baseline() -> None:
     ):
         assert report[key]["target_scope_id"] == target_scope["scope_id"]
         assert report[key]["target_draw_count"] == target_scope["target_draw_count"]
+
+
+def test_digit_walk_forward_backtest_reports_digit_score_formula() -> None:
+    report = build_backtest_report(_digit_dataset(160))
+
+    assert report["status"] == "complete"
+    assert report["baseline"]["method"] == "exact_sequence_enumeration"
+    formulas = report["score_formulas"]
+    assert formulas["product_kind"] == "digit_sequence"
+    assert formulas["score_unit"] == "best_position_matches_per_draw"
+    assert formulas["comparison_metric"] == "mean_position_match_difference"
+    assert "max_actual" in formulas["per_draw_score"]
+    assert "actual outcomes_t" in formulas["comparison_difference"]
+    assert {row["strategy"] for row in formulas["strategies"]} == {
+        "balanced_signal",
+        "recent_frequency",
+        "audit_signal",
+    }
+    assert all("selection_rule" in row for row in formulas["strategies"])
 
 
 def test_digit_uniform_expectation_enumerates_complete_space() -> None:

@@ -133,6 +133,8 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "phân bố siêu bội chính xác" in method_page
     assert "Tập kỳ mục tiêu chung" in app_script
     assert "target_scope" in app_script
+    assert "renderBacktestScoreFormulas" in app_script
+    assert "Thước đo riêng" in app_script
     assert "Ba chiến lược ứng viên" in method_page
     assert "hiệu chỉnh Benjamini-Hochberg" in method_page
     assert "trung_bình(d) ± 1,96 × sai_số_chuẩn" in method_page
@@ -393,6 +395,26 @@ def test_generated_site_data_matches_manifest() -> None:
                 )
         assert report["backtest"]["recent_model"]["strategy"] == "recent_frequency"
         assert "recent_comparison" in report["backtest"]
+        formulas = report["backtest"]["score_formulas"]
+        assert formulas["product_kind"] == product["kind"]
+        assert formulas["per_draw_score"]
+        assert formulas["comparison_difference"]
+        assert {row["strategy"] for row in formulas["strategies"]} == {
+            "balanced_signal",
+            "recent_frequency",
+            "audit_signal",
+        }
+        if product["kind"] == "number_set":
+            assert formulas["score_unit"] == "main_number_hits_per_draw"
+            assert formulas["comparison_metric"] == "mean_hit_difference"
+            assert (
+                formulas["special_numbers_policy"]
+                == "special_numbers_not_scored_in_backtest"
+            )
+        else:
+            assert formulas["score_unit"] == "best_position_matches_per_draw"
+            assert formulas["comparison_metric"] == "mean_position_match_difference"
+            assert "multi_outcome_policy" in formulas
         target_scope = report["backtest"]["target_scope"]
         assert target_scope["method"] == "same_confirmed_draw_targets_for_all_strategies"
         assert target_scope["target_draw_count"] == report["backtest"]["samples"]

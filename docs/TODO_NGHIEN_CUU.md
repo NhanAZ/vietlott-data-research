@@ -379,8 +379,17 @@ file để giữ lại dấu vết thay đổi.
   - Website hiển thị "Tập kỳ mục tiêu chung"; tài liệu hóa trong
     `docs/BACKTEST_TARGET_SCOPE.md` và khóa bằng unit test, documentation test,
     static-site test.
-- [ ] `BACKTEST-003` Công bố công thức điểm cho từng loại sản phẩm.
+- [x] `BACKTEST-003` Công bố công thức điểm cho từng loại sản phẩm.
   - Không gộp điểm của tập số và chuỗi chữ số thành cùng một thước đo tổng
+  - Hoàn thành ngày 18/06/2026.
+  - Mỗi report backtest có `score_formulas` tách `number_set` với đơn vị
+    `main_number_hits_per_draw` khỏi `digit_sequence` với đơn vị
+    `best_position_matches_per_draw`.
+  - JSON công bố `per_draw_score`, `comparison_difference`, baseline method,
+    biến đầu vào và công thức của `balanced_signal`, `recent_frequency`,
+    `audit_signal`; website đọc trực tiếp từ JSON này.
+  - Tài liệu hóa trong `docs/BACKTEST_SCORE_FORMULAS.md` và khóa bằng unit test,
+    documentation test, static-site test.
 
 - [ ] `BACKTEST-004` Thêm baseline xác suất cho cả điểm trùng một phần.
   - Baseline phải dùng phân bố chính xác khi có thể tính được

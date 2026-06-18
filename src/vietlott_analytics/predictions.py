@@ -22,11 +22,11 @@ MODEL_VERSION = "1.3.0"
 LEDGER_CHAIN_VERSION = 1
 NUMBER_SCORE_POLICY = (
     "recent=0.6*short+0.4*recent; "
-    "balanced=0.4*short+0.3*recent-0.15*long+0.15*overdue"
+    "balanced=0.4*short+0.3*recent-0.15*long+0.15*(overdue_ratio-1)"
 )
 AUDIT_NUMBER_SCORE_POLICY = (
     "audit=0.45*long_hot+0.25*recent+0.15*short+0.15*pair_pressure; "
-    "greedy pair-aware selection"
+    "greedy pair-aware selection adds 0.12*selected_pair_bonus"
 )
 DIGIT_SCORE_POLICY = (
     "recent=0.6*short+0.4*recent; "
@@ -478,6 +478,143 @@ def _target_scope_fields(target_scope: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _number_backtest_score_formulas() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "product_kind": "number_set",
+        "score_unit": "main_number_hits_per_draw",
+        "score_unit_label": "số chính trùng mỗi kỳ",
+        "per_draw_score": (
+            "hit_count_t = |predicted_main_numbers_t ∩ actual_main_numbers_t|"
+        ),
+        "comparison_metric": "mean_hit_difference",
+        "comparison_difference": "d_t = hit_count_t - E_uniform(hit_count_t)",
+        "baseline_method": "exact_hypergeometric_expectation",
+        "special_numbers_policy": "special_numbers_not_scored_in_backtest",
+        "variables": [
+            {
+                "name": "short_z",
+                "definition": "z-score tần suất số trong cửa sổ ngắn 50 kỳ",
+            },
+            {
+                "name": "recent_z",
+                "definition": "z-score tần suất số trong cửa sổ gần",
+            },
+            {
+                "name": "long_z",
+                "definition": "z-score tần suất số trên toàn lịch sử trước kỳ t",
+            },
+            {
+                "name": "overdue_ratio",
+                "definition": "min(4, số kỳ vắng hiện tại * xác suất xuất hiện đều)",
+            },
+            {
+                "name": "pair_pressure",
+                "definition": (
+                    "trung bình tối đa 5 z-score dương của các cặp đồng xuất hiện "
+                    "liên quan đến số đang xét"
+                ),
+            },
+            {
+                "name": "selected_pair_bonus",
+                "definition": (
+                    "trung bình z-score cặp dương giữa số ứng viên và các số đã chọn "
+                    "trong bước tham lam"
+                ),
+            },
+        ],
+        "strategies": [
+            {
+                "strategy": "balanced_signal",
+                "label": "Kết hợp ba dấu hiệu",
+                "formula": (
+                    "0.40*short_z + 0.30*recent_z - 0.15*long_z "
+                    "+ 0.15*(overdue_ratio - 1)"
+                ),
+                "selection_rule": "chọn pick_count số có điểm cao nhất",
+            },
+            {
+                "strategy": "recent_frequency",
+                "label": "Tần suất cửa sổ gần",
+                "formula": "0.60*short_z + 0.40*recent_z",
+                "selection_rule": "chọn pick_count số có điểm cao nhất",
+            },
+            {
+                "strategy": "audit_signal",
+                "label": "Tín hiệu kiểm định công bằng",
+                "formula": (
+                    "0.45*clip(long_z) + 0.25*clip(recent_z) "
+                    "+ 0.15*clip(short_z) + 0.15*pair_pressure"
+                ),
+                "selection_rule": (
+                    "chọn tham lam theo audit_score + 0.12*selected_pair_bonus"
+                ),
+            },
+        ],
+    }
+
+
+def _digit_backtest_score_formulas() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "product_kind": "digit_sequence",
+        "score_unit": "best_position_matches_per_draw",
+        "score_unit_label": "vị trí trùng tốt nhất mỗi kỳ",
+        "per_draw_score": (
+            "best_position_matches_t = max_actual sum_i 1[predicted_digit_i = actual_digit_i]"
+        ),
+        "comparison_metric": "mean_position_match_difference",
+        "comparison_difference": (
+            "d_t = best_position_matches_t - E_uniform(best_position_matches_t | actual outcomes_t)"
+        ),
+        "baseline_method": "exact_sequence_enumeration",
+        "multi_outcome_policy": (
+            "nếu một kỳ có nhiều kết quả công bố, điểm là số vị trí khớp cao nhất "
+            "so với các kết quả đó"
+        ),
+        "variables": [
+            {
+                "name": "short_z",
+                "definition": "z-score tần suất chữ số tại từng vị trí trong cửa sổ ngắn",
+            },
+            {
+                "name": "recent_z",
+                "definition": "z-score tần suất chữ số tại từng vị trí trong cửa sổ gần",
+            },
+            {
+                "name": "long_z",
+                "definition": "z-score tần suất chữ số tại từng vị trí trên lịch sử trước kỳ t",
+            },
+            {
+                "name": "clip(x)",
+                "definition": "giới hạn tín hiệu về khoảng [-4, 4] trước khi ghép điểm audit",
+            },
+        ],
+        "strategies": [
+            {
+                "strategy": "balanced_signal",
+                "label": "Kết hợp ba dấu hiệu",
+                "formula": "0.40*short_z + 0.30*recent_z - 0.20*long_z",
+                "selection_rule": "chọn chữ số có điểm cao nhất ở từng vị trí",
+            },
+            {
+                "strategy": "recent_frequency",
+                "label": "Tần suất cửa sổ gần",
+                "formula": "0.60*short_z + 0.40*recent_z",
+                "selection_rule": "chọn chữ số có điểm cao nhất ở từng vị trí",
+            },
+            {
+                "strategy": "audit_signal",
+                "label": "Tín hiệu kiểm định công bằng",
+                "formula": (
+                    "0.45*clip(long_z) + 0.35*clip(recent_z) + 0.20*clip(short_z)"
+                ),
+                "selection_rule": "chọn chữ số có điểm audit cao nhất ở từng vị trí",
+            },
+        ],
+    }
+
+
 def _validate_backtest_target_scope(backtest: dict[str, Any]) -> None:
     target_scope = backtest.get("target_scope")
     if not isinstance(target_scope, dict):
@@ -833,6 +970,7 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
         "method": "walk_forward",
         "samples": len(model_hits),
         "target_scope": target_scope,
+        "score_formulas": _number_backtest_score_formulas(),
         "first_test_draw_id": observations[start].draw_id,
         "latest_test_draw_id": observations[-1].draw_id,
         "initial_training_draws": start,
@@ -1030,6 +1168,7 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
         "method": "walk_forward",
         "samples": samples,
         "target_scope": target_scope,
+        "score_formulas": _digit_backtest_score_formulas(),
         "first_test_draw_id": observations[start].draw_id,
         "latest_test_draw_id": observations[-1].draw_id,
         "initial_training_draws": start,

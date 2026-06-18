@@ -213,6 +213,11 @@ def _build_analysis_export(
                     "number_set": "exact_hypergeometric_expectation",
                     "digit_sequence": "exact_sequence_enumeration",
                 },
+                "score_formula_field": "product_reports[*].backtest.score_formulas",
+                "score_units": {
+                    "number_set": "main_number_hits_per_draw",
+                    "digit_sequence": "best_position_matches_per_draw",
+                },
                 "multiple_testing": {
                     "method": "benjamini_hochberg",
                     "scope": "all completed product-strategy comparisons",
