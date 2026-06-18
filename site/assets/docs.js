@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           ? docsNumberFormatter.format(value)
           : normalizeDocsText(value);
     });
-    renderCoverage(manifest.products);
+    await renderCoverageTable(manifest.products);
     if (qualityResponse.ok) {
       renderSourceQuality(await qualityResponse.json(), manifest.products);
     }
@@ -25,24 +25,64 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-function renderCoverage(products) {
+async function renderCoverageTable(products) {
+  const details = await loadCoverageDetails(products);
   const rows = products
-    .map(
-      (product) => `
+    .map((product) => {
+      const detail = details.get(product.slug) || {};
+      return `
         <tr>
           <td>${escapeDocs(product.name)}</td>
-          <td>${docsNumberFormatter.format(product.confirmed_draws)}</td>
+          <td>${formatDocsInteger(product.confirmed_draws)}</td>
+          <td>${formatDocsInteger(detail.calendarDays)}</td>
+          <td>${formatDocsInteger(detail.csvRows)}</td>
           <td>${escapeDocs(formatDocsDate(product.first_date))}</td>
           <td>${escapeDocs(formatDocsDate(product.latest_date))}</td>
           <td>${product.active ? "Đang hoạt động" : "Lịch sử"}</td>
-        </tr>`,
-    )
+        </tr>`;
+    })
     .join("");
   document.getElementById("coverage-table").innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Sản phẩm</th><th>Kỳ xác nhận</th><th>Từ ngày</th><th>Đến ngày</th><th>Trạng thái</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Sản phẩm</th>
+          <th>Kỳ xác nhận</th>
+          <th>Ngày có dữ liệu</th>
+          <th>Bản ghi CSV</th>
+          <th>Từ ngày</th>
+          <th>Đến ngày</th>
+          <th>Trạng thái</th>
+        </tr>
+      </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+async function loadCoverageDetails(products) {
+  const pairs = await Promise.all(
+    products.map(async (product) => {
+      try {
+        const response = await fetch(`data/products/${product.slug}.json`, {
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const report = await response.json();
+        const summary = report.summary || {};
+        const quality = summary.data_quality || report.data_quality || {};
+        return [
+          product.slug,
+          {
+            calendarDays: summary.calendar_days_with_draws,
+            csvRows: quality.canonical_rows || quality.rows,
+          },
+        ];
+      } catch {
+        return [product.slug, {}];
+      }
+    }),
+  );
+  return new Map(pairs);
 }
 
 function renderSourceQuality(quality, products) {
@@ -84,6 +124,11 @@ function renderSourceQuality(quality, products) {
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+function formatDocsInteger(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? docsNumberFormatter.format(number) : "...";
 }
 
 function formatDocsPercent(numerator, denominator) {
