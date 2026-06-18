@@ -95,6 +95,34 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Đồng bộ main trước khi commit khí tượng
+        shell: bash
+        run: |
+          git fetch origin main
+          if test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"; then
+            exit 0
+          fi
+
+          patch_file="$RUNNER_TEMP/vietlott-weather-update.patch"
+          git diff --binary -- datasets/weather predictions > "$patch_file"
+          git reset --hard origin/main
+
+          if test -s "$patch_file"; then
+            git apply --3way "$patch_file"
+          fi
+
+          python -m pip install -e .
+          report_dir="$RUNNER_TEMP/vietlott-weather-reports"
+          mkdir -p "$report_dir"
+          vietlott-repository-data audit \
+            --source-dir datasets \
+            > "$report_dir/quality-audit-after-main-sync.json"
+          vietlott-research-report \
+            --datasets-dir datasets \
+            --site-dir site \
+            --prediction-ledger predictions/ledger.jsonl \
+            > "$report_dir/research-report-after-main-sync.json"
+
       - name: Commit khi dữ liệu thay đổi
         id: commit
         shell: bash
@@ -108,7 +136,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "data: cập nhật khí tượng lịch sử"
-          git pull --rebase origin main
           git push origin HEAD:main
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
