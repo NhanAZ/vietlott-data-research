@@ -92,6 +92,24 @@ def test_number_audit_contains_lightweight_fairness_tests() -> None:
         if test["id"] == "number_current_gap_geometric"
     )
     assert gap_power["status"] == "unsupported_scale"
+    for test_id in (
+        "number_sum_runs",
+        "number_sum_lag1_autocorrelation",
+        "number_sum_split_half_change",
+    ):
+        permutation = next(
+            test["parameters"]["permutation_check"]
+            for test in active_tests
+            if test["id"] == test_id
+        )
+        assert permutation["status"] == "available"
+        assert permutation["method"] == "whole_observation_label_permutation"
+        assert permutation["permutations"] == 499
+        assert len(permutation["seed"]) == 16
+        assert permutation["preserve_unit"] == "whole_draw_sum"
+        assert permutation["sampling_method"] == "full_sequence"
+        assert permutation["no_multiple_testing_decision"] is True
+        assert 0 <= permutation["empirical_p_value"] <= 1
 
 
 def test_finalize_audits_adds_global_correction_and_jsonl_events() -> None:
@@ -146,6 +164,8 @@ def test_finalize_audits_adds_global_correction_and_jsonl_events() -> None:
     assert all("dependency_family" in event for event in events)
     assert any(event["minimum_detectable_effect_80"] is not None for event in events)
     assert any(event["power_status"] == "available" for event in events)
+    assert any(event["permutation_status"] == "available" for event in events)
+    assert any(event["permutation_p_value"] is not None for event in events)
     assert any(event["q_value_dependency_family_bh"] is not None for event in events)
     assert all(
         "q_value_global_bh" in test
@@ -201,6 +221,14 @@ def test_finalize_audits_adds_global_correction_and_jsonl_events() -> None:
         for source in source_breakdown["sources"]
         for residual in source["top_residuals"]
     )
+    digit_permutation = next(
+        item["parameters"]["permutation_check"]
+        for item in report["audit"]["tests"]
+        if item["id"] == "digit_value_lag1_autocorrelation"
+    )
+    assert digit_permutation["status"] == "available"
+    assert digit_permutation["preserve_unit"] == "whole_digit_value"
+    assert digit_permutation["no_multiple_testing_decision"] is True
 
 
 def test_digit_position_audit_breaks_down_tiered_outcomes_without_new_p_values() -> None:

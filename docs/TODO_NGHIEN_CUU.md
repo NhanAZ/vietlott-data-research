@@ -293,7 +293,16 @@ file để giữ lại dấu vết thay đổi.
 
 ### P1.3 Phép kiểm bền vững hơn
 
-- [ ] `AUDIT-011` Bổ sung permutation test bảo toàn cấu trúc từng kỳ.
+- [x] `AUDIT-011` Bổ sung permutation test bảo toàn cấu trúc từng kỳ.
+  - Hoàn thành ngày 18/06/2026.
+  - Các phép kiểm thứ tự `runs`, `lag1_autocorrelation` và `split_half_change` có
+    `parameters.permutation_check` với 499 lần hoán vị seed cố định, tráo thứ tự
+    nguyên đơn vị quan sát thay vì phá cấu trúc trong từng kỳ hoặc từng kết quả.
+  - Với chuỗi quá dài, permutation dùng lấy mẫu đều quyết định sẵn tối đa 5.000 đơn vị
+    và công bố `full_value_count`, `permutation_value_count`, `sampling_method`.
+  - Website hiển thị `Permutation p` trong chi tiết kiểm định; tài liệu hóa trong
+    `docs/AUDIT_PERMUTATION_CHECKS.md` và khóa bằng unit test, documentation test,
+    static-site test.
 - [ ] `AUDIT-012` Bổ sung block bootstrap theo thời gian cho chỉ số phụ thuộc chuỗi.
 - [ ] `AUDIT-013` Thay split-half duy nhất bằng change-point có nhiều điểm ứng viên.
   - Có thể thử PELT hoặc binary segmentation

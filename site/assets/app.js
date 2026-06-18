@@ -957,6 +957,7 @@ function renderAuditTestRow(test) {
   const observedPower = power.status === "available" && power.observed_power != null
     ? formatPercent(power.observed_power)
     : "N/A";
+  const permutation = renderPermutationCheck(test.parameters?.permutation_check);
   return `
     <article class="audit-test-row ${escapeHtml(test.status)}">
       <div>
@@ -964,17 +965,20 @@ function renderAuditTestRow(test) {
         <strong>${escapeHtml(test.label)}</strong>
         <p>${escapeHtml(test.plain_language)}</p>
       </div>
-      <dl>
-        <div><dt>Trạng thái</dt><dd>${escapeHtml(auditStatusLabel(test.status))}</dd></div>
-        <div><dt>p gốc</dt><dd>${escapeHtml(pValue)}</dd></div>
-        <div><dt>q hiệu chỉnh</dt><dd>${escapeHtml(qDisplay)}</dd></div>
-        <div><dt>q theo họ</dt><dd>${escapeHtml(familyQ)}</dd></div>
-        <div><dt>Họ phụ thuộc</dt><dd>${escapeHtml(test.dependency_family_label || "Chưa phân nhóm")}</dd></div>
-        <div><dt>Độ lớn</dt><dd>${escapeHtml(effect)}</dd></div>
-        <div><dt>Ngưỡng thực dụng</dt><dd>${escapeHtml(threshold)}</dd></div>
-        <div><dt>MDE 80%</dt><dd>${escapeHtml(mde80)}</dd></div>
-        <div><dt>Công suất xấp xỉ</dt><dd>${escapeHtml(observedPower)}</dd></div>
-      </dl>
+      <div class="audit-test-metrics">
+        <dl>
+          <div><dt>Trạng thái</dt><dd>${escapeHtml(auditStatusLabel(test.status))}</dd></div>
+          <div><dt>p gốc</dt><dd>${escapeHtml(pValue)}</dd></div>
+          <div><dt>q hiệu chỉnh</dt><dd>${escapeHtml(qDisplay)}</dd></div>
+          <div><dt>q theo họ</dt><dd>${escapeHtml(familyQ)}</dd></div>
+          <div><dt>Họ phụ thuộc</dt><dd>${escapeHtml(test.dependency_family_label || "Chưa phân nhóm")}</dd></div>
+          <div><dt>Độ lớn</dt><dd>${escapeHtml(effect)}</dd></div>
+          <div><dt>Ngưỡng thực dụng</dt><dd>${escapeHtml(threshold)}</dd></div>
+          <div><dt>MDE 80%</dt><dd>${escapeHtml(mde80)}</dd></div>
+          <div><dt>Công suất xấp xỉ</dt><dd>${escapeHtml(observedPower)}</dd></div>
+        </dl>
+        ${permutation}
+      </div>
     </article>`;
 }
 
@@ -983,6 +987,27 @@ function renderPowerMde(power, targetPower) {
   const target = (power.target_powers || []).find((item) => item.power === targetPower);
   if (!target || target.minimum_detectable_effect == null) return "N/A";
   return formatDecimal(target.minimum_detectable_effect, 4);
+}
+
+function renderPermutationCheck(check) {
+  if (!check || check.status !== "available") return "";
+  const sampleText = check.permutation_value_count < check.full_value_count
+    ? `, mẫu đều ${numberFormatter.format(check.permutation_value_count)}/${numberFormatter.format(check.full_value_count)}`
+    : "";
+  return `
+    <p class="audit-permutation-note">
+      <strong>Permutation p ${escapeHtml(formatPValue(check.empirical_p_value))}</strong>
+      <span>Hoán vị nguyên đơn vị: ${escapeHtml(permutationUnitLabel(check.preserve_unit))}${escapeHtml(sampleText)}; không đổi q/status.</span>
+    </p>`;
+}
+
+function permutationUnitLabel(unit) {
+  const labels = {
+    whole_draw_sum: "tổng của từng kỳ",
+    whole_digit_value: "giá trị chuỗi của từng kết quả",
+    whole_digit_sum: "tổng chữ số của từng kết quả",
+  };
+  return labels[unit] || "từng đơn vị quan sát";
 }
 
 function renderWeatherReport(weather) {

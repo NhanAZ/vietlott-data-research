@@ -3,6 +3,19 @@
 Nhật ký này chỉ ghi thay đổi có thể làm đổi số liệu, trạng thái kiểm định, kết quả
 backtest hoặc cách đọc website. Thay đổi giao diện thuần túy không cần mục riêng.
 
+## 18/06/2026
+
+### Fairness audit 2.0.0
+
+- Thêm `parameters.permutation_check` cho các phép kiểm phụ thuộc thứ tự:
+  `runs`, `lag1_autocorrelation` và `split_half_change`
+- Hoán vị tráo thứ tự nguyên đơn vị quan sát, giữ nguyên tổng bộ số của từng kỳ
+  hoặc giá trị/tổng chữ số của từng kết quả
+- `empirical_p_value` của permutation check là chẩn đoán bền vững, không thay
+  `p_value`, q-value hoặc `status` chính
+- Chuỗi quá dài dùng lấy mẫu đều quyết định sẵn tối đa 5.000 đơn vị để giữ
+  workflow tự động tái lập và đủ nhẹ
+
 ## 15/06/2026
 
 ### Fairness audit 2.0.0

@@ -1817,6 +1817,10 @@ a {
   font-size: 13px;
 }
 
+.audit-test-metrics {
+  min-width: 0;
+}
+
 .audit-test-row dl {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1840,6 +1844,31 @@ a {
 .audit-test-row dd {
   margin: 3px 0 0;
   font-weight: 900;
+}
+
+.audit-permutation-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px !important;
+  padding: 10px 12px;
+  border: 1px solid #c9d4cd;
+  border-radius: 12px;
+  background: #f7f5ec;
+}
+
+.audit-permutation-note strong {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.audit-permutation-note span {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
 }
 
 .position-residual-panel {

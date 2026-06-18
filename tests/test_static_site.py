@@ -19,12 +19,12 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert 'id="kiem-dinh"' in index
-    assert "assets/app.js?v=20260618-4" in index
+    assert "assets/app.js?v=20260618-5" in index
     assert "archive-summary-heading" in index
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260618-2" in data_page
     for page in (index, method_page, data_page):
-        assert "assets/styles.css?v=20260618-3" in page
+        assert "assets/styles.css?v=20260618-4" in page
         assert "assets/favicon.svg?v=20260614-9" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
@@ -62,6 +62,10 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "renderPowerMde" in app_script
     assert "MDE 80%" in app_script
     assert "Ngưỡng đủ công suất" in app_script
+    assert "renderPermutationCheck" in app_script
+    assert "Permutation p" in app_script
+    assert "Hoán vị nguyên đơn vị" in app_script
+    assert "audit-permutation-note" in styles
     assert "renderAuditDependencyMatrix" in app_script
     assert "Ma trận phụ thuộc" in app_script
     assert "q theo họ" in app_script
@@ -255,6 +259,19 @@ def test_generated_site_data_matches_manifest() -> None:
             any(row["power"] == 0.8 for row in item["target_powers"])
             for item in available_power
         )
+        ordered_tests = [
+            item
+            for item in active_tests
+            if item["id"].endswith(("runs", "lag1_autocorrelation", "split_half_change"))
+        ]
+        assert ordered_tests
+        for item in ordered_tests:
+            check = item["parameters"]["permutation_check"]
+            assert check["status"] == "available"
+            assert check["method"] == "whole_observation_label_permutation"
+            assert check["permutations"] == 499
+            assert check["no_multiple_testing_decision"] is True
+            assert 0 <= check["empirical_p_value"] <= 1
         if product["slug"] in {"max3d", "max4d"}:
             position_test = next(
                 item

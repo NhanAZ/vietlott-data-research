@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import random
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from itertools import combinations
 from statistics import NormalDist, fmean, stdev
 from typing import Any
@@ -272,6 +273,9 @@ POWER_LEVELS = [0.8, 0.9]
 POWER_PRIMARY_LEVEL = 0.8
 POWER_UNSUPPORTED_EFFECTS = {"gap divided by expected gap"}
 POWER_NULL_EFFECTS = {"repeat pairs ratio": 1.0}
+PERMUTATION_COUNT = 499
+PERMUTATION_MIN_VALUES = 20
+PERMUTATION_MAX_VALUES = 5000
 
 EFFECT_THRESHOLD_REGISTRY = [
     {
@@ -579,6 +583,7 @@ def audit_log_events(product_reports: list[dict[str, Any]]) -> Iterator[dict[str
         audit = report["audit"]
         product = report["product"]
         for test in audit["tests"]:
+            permutation_check = test.get("parameters", {}).get("permutation_check", {})
             yield {
                 "schema_version": 1,
                 "event_type": "fairness_audit_test",
@@ -614,6 +619,9 @@ def audit_log_events(product_reports: list[dict[str, Any]]) -> Iterator[dict[str
                     test,
                     POWER_PRIMARY_LEVEL,
                 ),
+                "permutation_status": permutation_check.get("status"),
+                "permutation_p_value": permutation_check.get("empirical_p_value"),
+                "permutation_preserve_unit": permutation_check.get("preserve_unit"),
                 "statistically_notable": test.get("statistically_notable"),
                 "practically_large": test.get("practically_large"),
                 "interpretation": test["interpretation"],
@@ -883,14 +891,7 @@ def _g_test(
     )
 
 
-def _runs_test(
-    *,
-    test_id: str,
-    label: str,
-    values: list[int],
-    center: float,
-    plain_language: str,
-) -> dict[str, Any] | None:
+def _runs_statistics(values: list[int], center: float) -> dict[str, float | int] | None:
     signs = [1 if value > center else 0 if value < center else None for value in values]
     signs = [sign for sign in signs if sign is not None]
     n1 = sum(signs)
@@ -908,60 +909,16 @@ def _runs_test(
         / (total * total * (total - 1))
     )
     z_score = (runs - expected) / math.sqrt(variance) if variance > 0 else 0.0
-    return _test_result(
-        test_id=test_id,
-        family="sequence_dependence",
-        algorithm="Wald-Wolfowitz Runs Test",
-        label=label,
-        plain_language=plain_language,
-        statistic_name="z_score",
-        statistic=z_score,
-        p_value=_two_sided_normal_p(z_score),
-        effect_size_name="absolute z per sqrt(n)",
-        effect_size=abs(z_score) / math.sqrt(total),
-        practical_threshold=0.10,
-        sample_size=total,
-        parameters={"center": _round(center), "runs": runs, "expected_runs": _round(expected)},
-    )
+    return {"z_score": z_score, "runs": runs, "expected_runs": expected, "total": total}
 
 
-def _autocorrelation_test(
-    *,
-    test_id: str,
-    label: str,
-    values: list[int],
-    plain_language: str,
-) -> dict[str, Any] | None:
+def _lag1_autocorrelation(values: list[int]) -> float | None:
     if len(values) < 8:
         return None
-    left = values[:-1]
-    right = values[1:]
-    coefficient = _correlation(left, right)
-    z_score = coefficient * math.sqrt(len(left))
-    return _test_result(
-        test_id=test_id,
-        family="sequence_dependence",
-        algorithm="Lag-1 Autocorrelation Test",
-        label=label,
-        plain_language=plain_language,
-        statistic_name="autocorrelation",
-        statistic=coefficient,
-        p_value=_two_sided_normal_p(z_score),
-        effect_size_name="absolute correlation",
-        effect_size=abs(coefficient),
-        practical_threshold=0.05,
-        sample_size=len(left),
-        parameters={"lag": 1},
-    )
+    return _correlation(values[:-1], values[1:])
 
 
-def _split_half_change_test(
-    *,
-    test_id: str,
-    label: str,
-    values: list[int],
-    plain_language: str,
-) -> dict[str, Any] | None:
+def _split_half_statistics(values: list[int]) -> dict[str, float] | None:
     if len(values) < 20:
         return None
     midpoint = len(values) // 2
@@ -976,6 +933,209 @@ def _split_half_change_test(
     z_score = difference / standard_error if standard_error else 0.0
     pooled = math.sqrt((first_sd**2 + second_sd**2) / 2) if first_sd or second_sd else 0.0
     effect = abs(difference) / pooled if pooled else 0.0
+    power_sample_size = 1 / ((1 / len(first)) + (1 / len(second)))
+    return {
+        "z_score": z_score,
+        "difference": difference,
+        "effect": effect,
+        "first_half_mean": fmean(first),
+        "second_half_mean": fmean(second),
+        "power_sample_size": power_sample_size,
+    }
+
+
+def _permutation_sample_values(values: list[int]) -> tuple[list[int], str]:
+    if len(values) <= PERMUTATION_MAX_VALUES:
+        return list(values), "full_sequence"
+    step = len(values) / PERMUTATION_MAX_VALUES
+    sampled = [
+        values[min(len(values) - 1, int(index * step))]
+        for index in range(PERMUTATION_MAX_VALUES)
+    ]
+    return sampled, "deterministic_even_spacing"
+
+
+def _permutation_check(
+    *,
+    test_id: str,
+    values: list[int],
+    statistic_name: str,
+    statistic_fn: Callable[[list[int]], float | None],
+    preserve_unit: str,
+) -> dict[str, Any]:
+    full_count = len(values)
+    if full_count < PERMUTATION_MIN_VALUES:
+        return {
+            "status": "not_available",
+            "method": "whole_observation_label_permutation",
+            "reason": "Không đủ quan sát để chạy permutation check đã khóa.",
+            "minimum_values": PERMUTATION_MIN_VALUES,
+            "full_value_count": full_count,
+            "no_multiple_testing_decision": True,
+        }
+
+    sampled_values, sampling_method = _permutation_sample_values(values)
+    observed = statistic_fn(sampled_values)
+    if observed is None:
+        return {
+            "status": "not_available",
+            "method": "whole_observation_label_permutation",
+            "reason": "Thống kê không xác định trên mẫu giữ nguyên đơn vị quan sát.",
+            "full_value_count": full_count,
+            "permutation_value_count": len(sampled_values),
+            "sampling_method": sampling_method,
+            "no_multiple_testing_decision": True,
+        }
+
+    values_hash = hashlib.sha256(",".join(str(value) for value in values).encode()).hexdigest()
+    seed_hex = hashlib.sha256(
+        f"{test_id}:{full_count}:{values_hash}:permutation-v1".encode()
+    ).hexdigest()[:16]
+    rng = random.Random(int(seed_hex, 16))
+    extreme = 0
+    for _ in range(PERMUTATION_COUNT):
+        shuffled = list(sampled_values)
+        rng.shuffle(shuffled)
+        candidate = statistic_fn(shuffled)
+        if candidate is not None and abs(candidate) >= abs(observed) - 1e-12:
+            extreme += 1
+
+    return {
+        "status": "available",
+        "method": "whole_observation_label_permutation",
+        "alternative": "two_sided_absolute_statistic",
+        "permutations": PERMUTATION_COUNT,
+        "seed": seed_hex,
+        "statistic_name": statistic_name,
+        "observed_statistic": _round(observed),
+        "empirical_p_value": _round((extreme + 1) / (PERMUTATION_COUNT + 1), 6),
+        "extreme_count": extreme,
+        "full_value_count": full_count,
+        "permutation_value_count": len(sampled_values),
+        "sampling_method": sampling_method,
+        "preserve_unit": preserve_unit,
+        "no_multiple_testing_decision": True,
+        "interpretation": (
+            "Hoán vị chỉ tráo thứ tự các đơn vị quan sát đã có, giữ nguyên cấu trúc "
+            "bên trong từng kỳ hoặc từng kết quả và không đổi q/status chính."
+        ),
+    }
+
+
+def _permutation_preserve_unit(test_id: str) -> str:
+    if test_id.startswith("number_"):
+        return "whole_draw_sum"
+    if "digit_sum" in test_id:
+        return "whole_digit_sum"
+    if test_id.startswith("digit_"):
+        return "whole_digit_value"
+    return "whole_observation"
+
+
+def _runs_test(
+    *,
+    test_id: str,
+    label: str,
+    values: list[int],
+    center: float,
+    plain_language: str,
+) -> dict[str, Any] | None:
+    stats = _runs_statistics(values, center)
+    if stats is None:
+        return None
+    z_score = float(stats["z_score"])
+    total = int(stats["total"])
+    permutation_check = _permutation_check(
+        test_id=test_id,
+        values=values,
+        statistic_name="z_score",
+        statistic_fn=lambda sample: (
+            None
+            if (sample_stats := _runs_statistics(sample, center)) is None
+            else float(sample_stats["z_score"])
+        ),
+        preserve_unit=_permutation_preserve_unit(test_id),
+    )
+    return _test_result(
+        test_id=test_id,
+        family="sequence_dependence",
+        algorithm="Wald-Wolfowitz Runs Test",
+        label=label,
+        plain_language=plain_language,
+        statistic_name="z_score",
+        statistic=z_score,
+        p_value=_two_sided_normal_p(z_score),
+        effect_size_name="absolute z per sqrt(n)",
+        effect_size=abs(z_score) / math.sqrt(total),
+        practical_threshold=0.10,
+        sample_size=total,
+        parameters={
+            "center": _round(center),
+            "runs": int(stats["runs"]),
+            "expected_runs": _round(float(stats["expected_runs"])),
+            "permutation_check": permutation_check,
+        },
+    )
+
+
+def _autocorrelation_test(
+    *,
+    test_id: str,
+    label: str,
+    values: list[int],
+    plain_language: str,
+) -> dict[str, Any] | None:
+    coefficient = _lag1_autocorrelation(values)
+    if coefficient is None:
+        return None
+    z_score = coefficient * math.sqrt(len(values) - 1)
+    permutation_check = _permutation_check(
+        test_id=test_id,
+        values=values,
+        statistic_name="autocorrelation",
+        statistic_fn=_lag1_autocorrelation,
+        preserve_unit=_permutation_preserve_unit(test_id),
+    )
+    return _test_result(
+        test_id=test_id,
+        family="sequence_dependence",
+        algorithm="Lag-1 Autocorrelation Test",
+        label=label,
+        plain_language=plain_language,
+        statistic_name="autocorrelation",
+        statistic=coefficient,
+        p_value=_two_sided_normal_p(z_score),
+        effect_size_name="absolute correlation",
+        effect_size=abs(coefficient),
+        practical_threshold=0.05,
+        sample_size=len(values) - 1,
+        parameters={"lag": 1, "permutation_check": permutation_check},
+    )
+
+
+def _split_half_change_test(
+    *,
+    test_id: str,
+    label: str,
+    values: list[int],
+    plain_language: str,
+) -> dict[str, Any] | None:
+    stats = _split_half_statistics(values)
+    if stats is None:
+        return None
+    z_score = stats["z_score"]
+    effect = stats["effect"]
+    permutation_check = _permutation_check(
+        test_id=test_id,
+        values=values,
+        statistic_name="z_score",
+        statistic_fn=lambda sample: (
+            None
+            if (sample_stats := _split_half_statistics(sample)) is None
+            else sample_stats["z_score"]
+        ),
+        preserve_unit=_permutation_preserve_unit(test_id),
+    )
     return _test_result(
         test_id=test_id,
         family="change_point",
@@ -989,10 +1149,11 @@ def _split_half_change_test(
         effect_size=effect,
         practical_threshold=0.15,
         sample_size=len(values),
-        power_sample_size=1 / ((1 / len(first)) + (1 / len(second))),
+        power_sample_size=stats["power_sample_size"],
         parameters={
-            "first_half_mean": _round(fmean(first)),
-            "second_half_mean": _round(fmean(second)),
+            "first_half_mean": _round(stats["first_half_mean"]),
+            "second_half_mean": _round(stats["second_half_mean"]),
+            "permutation_check": permutation_check,
         },
     )
 
