@@ -234,9 +234,9 @@ def test_walk_forward_backtest_reports_uniform_baseline() -> None:
     )
     trial_registry = report["multiple_testing_trials"]
     assert trial_registry["method"] == "benjamini_hochberg_over_published_and_registered_trials"
-    assert trial_registry["trial_count"] == 7
+    assert trial_registry["trial_count"] == 13
     assert trial_registry["published_trial_count"] == 3
-    assert trial_registry["registered_parameter_variant_count"] == 4
+    assert trial_registry["registered_parameter_variant_count"] == 10
     assert {
         row["published_comparison_key"]
         for row in trial_registry["trials"]
@@ -246,6 +246,18 @@ def test_walk_forward_backtest_reports_uniform_baseline() -> None:
         row["target_scope_id"] == target_scope["scope_id"]
         for row in trial_registry["trials"]
     )
+    window_sensitivity = report["window_sensitivity"]
+    assert window_sensitivity["method"] == "registered_recent_window_sensitivity"
+    assert window_sensitivity["registered_window_draws"] == [50, 200, 500]
+    assert window_sensitivity["primary_recent_window_draws"] == report[
+        "recent_window_draws"
+    ]
+    assert window_sensitivity["trial_count"] == 9
+    assert window_sensitivity["primary_trial_count"] == 3
+    assert window_sensitivity["alternative_window_trial_count"] == 6
+    assert {
+        row["trial_id"] for row in window_sensitivity["trials"]
+    }.issubset({row["trial_id"] for row in trial_registry["trials"]})
     trial_log = report["trial_disposition_log"]
     assert trial_log["method"] == "registered_trial_disposition_log"
     assert trial_log["included_trial_count"] == trial_registry["trial_count"]
@@ -330,7 +342,7 @@ def test_number_backtest_predictions_use_only_prior_draws(monkeypatch) -> None:
     start = 30
     original_number_scores = predictions_module._number_scores
     original_pair_scores = predictions_module._number_pair_scores_from_counts
-    score_calls: list[int] = []
+    score_calls: list[tuple[int, int, int]] = []
     pair_calls: list[int] = []
 
     def guarded_pair_scores(product, pair_counts, draw_count):
@@ -364,7 +376,7 @@ def test_number_backtest_predictions_use_only_prior_draws(monkeypatch) -> None:
             observations[total_draws - short_draws : total_draws]
         )
         assert last_seen == expected_last_seen
-        score_calls.append(total_draws)
+        score_calls.append((total_draws, recent_draws, short_draws))
         return original_number_scores(
             product,
             total_counts,
@@ -387,7 +399,11 @@ def test_number_backtest_predictions_use_only_prior_draws(monkeypatch) -> None:
     report = build_backtest_report(dataset)
 
     assert report["status"] == "complete"
-    assert score_calls == list(range(start, len(observations)))
+    assert score_calls == [
+        (index, min(window, index), min(50, index))
+        for index in range(start, len(observations))
+        for window in (50, 200, 500)
+    ]
     assert pair_calls == list(range(start, len(observations)))
 
 
@@ -397,25 +413,37 @@ def test_digit_backtest_predictions_use_only_prior_draws(monkeypatch) -> None:
     start = 30
     positions = dataset.product.sequence_length or 0
     original_digit_sequence = predictions_module._digit_sequence_from_scores
-    calls: list[tuple[int, str]] = []
-    expected_strategies = (
-        "balanced",
-        "recent",
-        "audit",
-        "short",
-        "long",
-        "balanced_no_long_penalty",
-        "audit_unclipped",
+    calls: list[tuple[int, str, int]] = []
+    expected_calls = (
+        ("balanced", 50),
+        ("recent", 50),
+        ("audit", 50),
+        ("balanced", 200),
+        ("recent", 200),
+        ("audit", 200),
+        ("balanced", 500),
+        ("recent", 500),
+        ("audit", 500),
+        ("short", 500),
+        ("long", 500),
+        ("balanced_no_long_penalty", 500),
+        ("audit_unclipped", 500),
     )
 
     def guarded_digit_sequence(total, recent, short, symbols, strategy, seed):
-        target_index = start + len(calls) // len(expected_strategies)
+        target_index = start + len(calls) // len(expected_calls)
+        expected_strategy, expected_recent_window = expected_calls[
+            len(calls) % len(expected_calls)
+        ]
+        assert strategy == expected_strategy
         assert total == _digit_observation_counts(
             observations[:target_index],
             positions,
         )
         assert recent == _digit_observation_counts(
-            observations[max(0, target_index - 500) : target_index],
+            observations[
+                max(0, target_index - expected_recent_window) : target_index
+            ],
             positions,
         )
         assert short == _digit_observation_counts(
@@ -423,7 +451,7 @@ def test_digit_backtest_predictions_use_only_prior_draws(monkeypatch) -> None:
             positions,
         )
         assert f"|{observations[target_index].draw_id}|" in seed
-        calls.append((target_index, strategy))
+        calls.append((target_index, strategy, expected_recent_window))
         return original_digit_sequence(total, recent, short, symbols, strategy, seed)
 
     monkeypatch.setattr(
@@ -436,9 +464,9 @@ def test_digit_backtest_predictions_use_only_prior_draws(monkeypatch) -> None:
 
     assert report["status"] == "complete"
     assert calls == [
-        (index, strategy)
+        (index, strategy, window)
         for index in range(start, len(observations))
-        for strategy in expected_strategies
+        for strategy, window in expected_calls
     ]
 
 
@@ -453,12 +481,20 @@ def test_digit_walk_forward_backtest_reports_digit_score_formula() -> None:
     assert report["phase_split"]["final_evaluation_phase"]["scope_id"] == report[
         "target_scope"
     ]["scope_id"]
-    assert report["multiple_testing_trials"]["trial_count"] == 7
+    assert report["multiple_testing_trials"]["trial_count"] == 13
     assert report["multiple_testing_trials"]["published_trial_count"] == 3
-    assert report["multiple_testing_trials"]["registered_parameter_variant_count"] == 4
+    assert report["multiple_testing_trials"]["registered_parameter_variant_count"] == 10
+    window_sensitivity = report["window_sensitivity"]
+    assert window_sensitivity["registered_window_draws"] == [50, 200, 500]
+    assert window_sensitivity["primary_recent_window_draws"] == report[
+        "recent_window_draws"
+    ]
+    assert window_sensitivity["trial_count"] == 9
+    assert window_sensitivity["primary_trial_count"] == 3
+    assert window_sensitivity["alternative_window_trial_count"] == 6
     trial_log = report["trial_disposition_log"]
-    assert trial_log["included_trial_count"] == 7
-    assert trial_log["failed_trial_count"] == 7
+    assert trial_log["included_trial_count"] == 13
+    assert trial_log["failed_trial_count"] == 13
     assert trial_log["rejected_configuration_count"] >= 4
     assert any(
         row["reason_code"] == "tier_breakdown_is_explanatory_not_selection_target"

@@ -221,6 +221,9 @@ def _build_analysis_export(
                 "multiple_testing_trial_field": (
                     "product_reports[*].backtest.multiple_testing_trials"
                 ),
+                "window_sensitivity_field": (
+                    "product_reports[*].backtest.window_sensitivity"
+                ),
                 "trial_disposition_log_field": (
                     "product_reports[*].backtest.trial_disposition_log"
                 ),
@@ -245,6 +248,10 @@ def _build_analysis_export(
                     "backtest_summary",
                     {},
                 ).get("multiple_testing_registry_validation", {}),
+                "window_sensitivity_validation": manifest.get(
+                    "backtest_summary",
+                    {},
+                ).get("window_sensitivity_validation", {}),
                 "trial_disposition_validation": manifest.get(
                     "backtest_summary",
                     {},

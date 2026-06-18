@@ -17,6 +17,10 @@ Mỗi report complete có `multiple_testing_trials` gồm:
 - `trials`: từng trial với `trial_id`, `strategy`, `variant_role`,
   `approximate_p_value`, thước đo chênh lệch, khoảng ước lượng và tham số.
 
+Với registry hiện tại, mỗi sản phẩm complete có 13 trial: 3 trial công bố,
+4 shadow trial tham số cũ và 6 trial cửa sổ phụ từ `backtest.window_sensitivity`.
+Các cửa sổ phụ này là một phần của `registered_parameter_variant_count`.
+
 Các trial có `published = true` trỏ về `published_comparison_key` tương ứng:
 `comparison`, `recent_comparison` hoặc `audit_comparison`.
 

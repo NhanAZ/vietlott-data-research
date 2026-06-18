@@ -115,6 +115,24 @@ BACKTEST_DIGIT_SHADOW_TRIALS = (
         "parameters": {"score_policy": "audit_unclipped_z_scores"},
     },
 )
+BACKTEST_WINDOW_SENSITIVITY_WINDOWS = (50, 200, 500)
+BACKTEST_WINDOW_SENSITIVITY_STRATEGIES = (
+    {
+        "strategy": "balanced_signal",
+        "score_strategy": "balanced",
+        "label": "Kết hợp ba dấu hiệu",
+    },
+    {
+        "strategy": "recent_frequency",
+        "score_strategy": "recent",
+        "label": "Tần suất cửa sổ gần",
+    },
+    {
+        "strategy": "audit_signal",
+        "score_strategy": "audit",
+        "label": "Tín hiệu kiểm định công bằng",
+    },
+)
 BACKTEST_COMMON_REJECTED_CONFIGURATIONS = (
     {
         "config_id": "posthoc_best_variant_picker",
@@ -492,6 +510,7 @@ def finalize_backtests(product_reports: list[dict[str, Any]]) -> dict[str, Any]:
     target_scopes: list[dict[str, Any]] = []
     phase_splits: list[dict[str, Any]] = []
     trial_registries: list[dict[str, Any]] = []
+    window_sensitivity_reports: list[dict[str, Any]] = []
     completed_backtests: list[tuple[str, dict[str, Any]]] = []
     completed_products = 0
     for report in product_reports:
@@ -501,6 +520,8 @@ def finalize_backtests(product_reports: list[dict[str, Any]]) -> dict[str, Any]:
         _validate_backtest_target_scope(backtest)
         _validate_backtest_phase_split(backtest)
         _validate_backtest_multiple_testing_trials(backtest)
+        if "window_sensitivity" in backtest:
+            _validate_backtest_window_sensitivity(backtest)
         _validate_backtest_trial_disposition_log(backtest)
         completed_products += 1
         product_slug = str(report["product"]["slug"])
@@ -554,6 +575,29 @@ def finalize_backtests(product_reports: list[dict[str, Any]]) -> dict[str, Any]:
                 else:
                     comparison = None
             correction_trials.append((trial, product_slug, comparison))
+        sensitivity = backtest.get("window_sensitivity", {})
+        if isinstance(sensitivity, dict):
+            window_sensitivity_reports.append(
+                {
+                    "product": product_slug,
+                    "method": sensitivity.get("method"),
+                    "registered_window_draws": sensitivity.get(
+                        "registered_window_draws"
+                    ),
+                    "primary_recent_window_draws": sensitivity.get(
+                        "primary_recent_window_draws"
+                    ),
+                    "trial_count": sensitivity.get("trial_count"),
+                    "primary_trial_count": sensitivity.get("primary_trial_count"),
+                    "alternative_window_trial_count": sensitivity.get(
+                        "alternative_window_trial_count"
+                    ),
+                    "included_trial_count": sensitivity.get("included_trial_count"),
+                    "target_scope_id": target_scope.get("scope_id")
+                    if isinstance(target_scope, dict)
+                    else None,
+                }
+            )
         phase_split = backtest.get("phase_split")
         if isinstance(phase_split, dict):
             selection_phase = phase_split.get("selection_phase", {})
@@ -697,6 +741,30 @@ def finalize_backtests(product_reports: list[dict[str, Any]]) -> dict[str, Any]:
             "interpretation": (
                 "Mỗi sản phẩm lưu trial đã chạy nhưng không thắng sau hiệu chỉnh "
                 "và các cấu hình bị loại trước phase đánh giá cuối."
+            ),
+        },
+        "window_sensitivity_validation": {
+            "status": "validated",
+            "method": "registered_recent_window_sensitivity",
+            "product_count": len(window_sensitivity_reports),
+            "registered_window_draws": list(BACKTEST_WINDOW_SENSITIVITY_WINDOWS),
+            "included_trial_count": sum(
+                int(row.get("included_trial_count") or 0)
+                for row in window_sensitivity_reports
+            ),
+            "primary_trial_count": sum(
+                int(row.get("primary_trial_count") or 0)
+                for row in window_sensitivity_reports
+            ),
+            "alternative_window_trial_count": sum(
+                int(row.get("alternative_window_trial_count") or 0)
+                for row in window_sensitivity_reports
+            ),
+            "products": window_sensitivity_reports,
+            "interpretation": (
+                "Mỗi report complete có ma trận chiến lược x cửa sổ 50/200/500. "
+                "Các cửa sổ không phải mặc định được đăng ký như biến thể tham số "
+                "và cùng đi vào hiệu chỉnh Benjamini-Hochberg."
             ),
         },
         "target_scope_validation": {
@@ -843,9 +911,10 @@ def _backtest_trial_row(
     scope_fields: dict[str, Any],
     parameters: dict[str, Any],
     published_comparison_key: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     z_score, p_value = _paired_normal_test(differences)
-    return {
+    row = {
         "trial_id": trial_id,
         "strategy": strategy,
         "label": label,
@@ -859,6 +928,9 @@ def _backtest_trial_row(
         **_normal_mean_interval(differences),
         "parameters": parameters,
     }
+    if metadata:
+        row.update(metadata)
+    return row
 
 
 def _backtest_trial_disposition_log(
@@ -987,6 +1059,15 @@ def _backtest_trial_disposition_row(trial: dict[str, Any]) -> dict[str, Any]:
         "parameters_sha256": _stable_json_sha256(parameters),
         "parameters": parameters,
     }
+    for key in (
+        "diagnostic_group",
+        "sensitivity_dimension",
+        "parameter_value",
+        "primary_parameter_value",
+        "window_sensitivity_role",
+    ):
+        if key in trial:
+            row[key] = trial[key]
     return row
 
 
@@ -1027,6 +1108,94 @@ def _backtest_multiple_testing_trials(
         "registered_parameter_variant_count": len(trials) - published_count,
         "trials": trials,
     }
+
+
+def _backtest_window_sensitivity(
+    product_kind: str,
+    metric_key: str,
+    primary_recent_window: int,
+    trials: list[dict[str, Any]],
+) -> dict[str, Any]:
+    primary_trials = [
+        row
+        for row in trials
+        if row.get("parameter_value") == primary_recent_window
+    ]
+    alternative_trials = [
+        row
+        for row in trials
+        if row.get("parameter_value") != primary_recent_window
+    ]
+    return {
+        "schema_version": 1,
+        "method": "registered_recent_window_sensitivity",
+        "product_kind": product_kind,
+        "comparison_metric": metric_key,
+        "sensitivity_dimension": "recent_window_draws",
+        "registered_window_draws": list(BACKTEST_WINDOW_SENSITIVITY_WINDOWS),
+        "primary_recent_window_draws": primary_recent_window,
+        "trial_count": len(trials),
+        "included_trial_count": len(trials),
+        "primary_trial_count": len(primary_trials),
+        "alternative_window_trial_count": len(alternative_trials),
+        "trials": trials,
+        "interpretation": (
+            "Mỗi chiến lược công bố được chạy lại trên các cửa sổ gần 50, 200 và "
+            "500 kỳ. Cửa sổ mặc định vẫn là trial công bố; cửa sổ còn lại là biến "
+            "thể đã đăng ký và được đưa vào hiệu chỉnh nhiều phép thử."
+        ),
+    }
+
+
+def _backtest_window_trial_metadata(
+    *,
+    window: int,
+    primary_recent_window: int,
+) -> dict[str, Any]:
+    return {
+        "diagnostic_group": "recent_window_sensitivity",
+        "sensitivity_dimension": "recent_window_draws",
+        "parameter_value": window,
+        "primary_parameter_value": primary_recent_window,
+        "window_sensitivity_role": (
+            "primary_published_window"
+            if window == primary_recent_window
+            else "registered_alternative_window"
+        ),
+    }
+
+
+def _backtest_window_trial_parameters(
+    *,
+    product_kind: str,
+    strategy: str,
+    recent_window: int,
+    primary_recent_window: int,
+    short_window: int,
+    pair_window: int | None = None,
+) -> dict[str, Any]:
+    if product_kind == "number_set":
+        policy_by_strategy = {
+            "balanced_signal": NUMBER_SCORE_POLICY,
+            "recent_frequency": "0.6*short_z+0.4*recent_z",
+            "audit_signal": AUDIT_NUMBER_SCORE_POLICY,
+        }
+    else:
+        policy_by_strategy = {
+            "balanced_signal": DIGIT_SCORE_POLICY,
+            "recent_frequency": "0.6*short_z+0.4*recent_z",
+            "audit_signal": AUDIT_DIGIT_SCORE_POLICY,
+        }
+    parameters: dict[str, Any] = {
+        "score_policy": policy_by_strategy[strategy],
+        "recent_window_draws": recent_window,
+        "primary_recent_window_draws": primary_recent_window,
+        "short_window_draws": short_window,
+        "registered_window_draws": list(BACKTEST_WINDOW_SENSITIVITY_WINDOWS),
+    }
+    if pair_window is not None:
+        parameters["pair_window_draws"] = pair_window
+    return parameters
 
 
 def _number_backtest_score_formulas() -> dict[str, Any]:
@@ -1254,6 +1423,98 @@ def _validate_backtest_multiple_testing_trials(backtest: dict[str, Any]) -> None
         raise ValueError("Backtest multiple_testing_trials published count mismatch")
     if registry.get("registered_parameter_variant_count") != len(trials) - len(published_keys):
         raise ValueError("Backtest multiple_testing_trials variant count mismatch")
+
+
+def _validate_backtest_window_sensitivity(backtest: dict[str, Any]) -> None:
+    sensitivity = backtest.get("window_sensitivity")
+    registry = backtest.get("multiple_testing_trials")
+    target_scope = backtest.get("target_scope")
+    if not isinstance(sensitivity, dict):
+        raise ValueError("Backtest window_sensitivity missing")
+    if not isinstance(registry, dict):
+        raise ValueError("Backtest multiple_testing_trials missing")
+    if not isinstance(target_scope, dict):
+        raise ValueError("Backtest target_scope missing")
+    trials = sensitivity.get("trials")
+    registry_trials = registry.get("trials")
+    if not isinstance(trials, list) or not trials:
+        raise ValueError("Backtest window_sensitivity trials missing")
+    if not isinstance(registry_trials, list):
+        raise ValueError("Backtest multiple_testing_trials trials missing")
+    if sensitivity.get("registered_window_draws") != list(
+        BACKTEST_WINDOW_SENSITIVITY_WINDOWS
+    ):
+        raise ValueError("Backtest window_sensitivity registered windows mismatch")
+    primary_window = sensitivity.get("primary_recent_window_draws")
+    if primary_window not in BACKTEST_WINDOW_SENSITIVITY_WINDOWS:
+        raise ValueError("Backtest window_sensitivity primary window invalid")
+    if sensitivity.get("trial_count") != len(trials):
+        raise ValueError("Backtest window_sensitivity trial_count mismatch")
+    if sensitivity.get("included_trial_count") != len(trials):
+        raise ValueError("Backtest window_sensitivity included count mismatch")
+    expected_trial_count = (
+        len(BACKTEST_WINDOW_SENSITIVITY_WINDOWS)
+        * len(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES)
+    )
+    if len(trials) != expected_trial_count:
+        raise ValueError("Backtest window_sensitivity trial matrix incomplete")
+    registry_ids = {row.get("trial_id") for row in registry_trials}
+    expected_scope_id = target_scope.get("scope_id")
+    expected_count = target_scope.get("target_draw_count")
+    seen: set[tuple[str, int]] = set()
+    primary_count = 0
+    alternative_count = 0
+    for trial in trials:
+        if not isinstance(trial, dict):
+            raise ValueError("Backtest window_sensitivity row invalid")
+        trial_id = trial.get("trial_id")
+        strategy = trial.get("strategy")
+        window = trial.get("parameter_value")
+        if trial_id not in registry_ids:
+            raise ValueError("Backtest window_sensitivity trial missing from registry")
+        if strategy not in {
+            str(row["strategy"]) for row in BACKTEST_WINDOW_SENSITIVITY_STRATEGIES
+        }:
+            raise ValueError("Backtest window_sensitivity strategy invalid")
+        if window not in BACKTEST_WINDOW_SENSITIVITY_WINDOWS:
+            raise ValueError("Backtest window_sensitivity window invalid")
+        if (str(strategy), int(window)) in seen:
+            raise ValueError("Backtest window_sensitivity duplicate row")
+        seen.add((str(strategy), int(window)))
+        if trial.get("target_scope_id") != expected_scope_id:
+            raise ValueError("Backtest window_sensitivity target_scope_id mismatch")
+        if trial.get("target_draw_count") != expected_count:
+            raise ValueError("Backtest window_sensitivity target_draw_count mismatch")
+        if trial.get("sensitivity_dimension") != "recent_window_draws":
+            raise ValueError("Backtest window_sensitivity dimension mismatch")
+        if trial.get("primary_parameter_value") != primary_window:
+            raise ValueError("Backtest window_sensitivity primary value mismatch")
+        parameters = trial.get("parameters")
+        if not isinstance(parameters, dict):
+            raise ValueError("Backtest window_sensitivity parameters missing")
+        if parameters.get("recent_window_draws") != window:
+            raise ValueError("Backtest window_sensitivity parameter mismatch")
+        if window == primary_window:
+            primary_count += 1
+            if trial.get("published") is not True:
+                raise ValueError("Backtest window_sensitivity primary row not published")
+            if trial.get("window_sensitivity_role") != "primary_published_window":
+                raise ValueError("Backtest window_sensitivity primary role mismatch")
+        else:
+            alternative_count += 1
+            if trial.get("published") is not False:
+                raise ValueError("Backtest window_sensitivity alternative row published")
+            if trial.get("variant_role") != "registered_parameter_variant":
+                raise ValueError("Backtest window_sensitivity alternative role mismatch")
+            if trial.get("window_sensitivity_role") != "registered_alternative_window":
+                raise ValueError("Backtest window_sensitivity alternative role mismatch")
+    expected_primary_count = len(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES)
+    if primary_count != expected_primary_count:
+        raise ValueError("Backtest window_sensitivity primary count mismatch")
+    if sensitivity.get("primary_trial_count") != primary_count:
+        raise ValueError("Backtest window_sensitivity primary summary mismatch")
+    if sensitivity.get("alternative_window_trial_count") != alternative_count:
+        raise ValueError("Backtest window_sensitivity alternative summary mismatch")
 
 
 def _validate_backtest_trial_disposition_log(backtest: dict[str, Any]) -> None:
@@ -1557,14 +1818,21 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
 
     recent_window = 500 if product.slug == "keno" else 200
     short_window = 50
+    registered_windows = BACKTEST_WINDOW_SENSITIVITY_WINDOWS
     total_counts: Counter[int] = Counter()
     last_seen: dict[int, int] = {}
     for index, item in enumerate(observations[:start]):
         total_counts.update(item.values)
         for value in item.values:
             last_seen[value] = index
-    recent_items = deque(observations[max(0, start - recent_window) : start])
-    recent_counts = Counter(value for item in recent_items for value in item.values)
+    recent_items_by_window = {
+        window: deque(observations[max(0, start - window) : start])
+        for window in registered_windows
+    }
+    recent_counts_by_window = {
+        window: Counter(value for item in items for value in item.values)
+        for window, items in recent_items_by_window.items()
+    }
     short_items = deque(observations[max(0, start - short_window) : start])
     short_counts = Counter(value for item in short_items for value in item.values)
     pair_window = min(PAIR_WINDOW_LIMIT, len(observations))
@@ -1581,6 +1849,11 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
         str(trial["trial_id"]): []
         for trial in BACKTEST_NUMBER_SHADOW_TRIALS
     }
+    window_differences: dict[tuple[str, int], list[float]] = {
+        (str(strategy["strategy"]), window): []
+        for window in registered_windows
+        for strategy in BACKTEST_WINDOW_SENSITIVITY_STRATEGIES
+    }
     expected_hits = (product.pick_count or 0) ** 2 / product.pool_size
     for index in range(start, len(observations)):
         target = observations[index]
@@ -1589,32 +1862,61 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
             pair_counts,
             len(pair_items),
         )
-        scores = _number_scores(
-            product,
-            total_counts,
-            index,
-            recent_counts,
-            len(recent_items),
-            short_counts,
-            len(short_items),
-            last_seen,
-            index,
-        )
-        _apply_audit_number_scores(scores, pair_scores)
+        scores_by_window = {}
+        for window in registered_windows:
+            window_scores = _number_scores(
+                product,
+                total_counts,
+                index,
+                recent_counts_by_window[window],
+                len(recent_items_by_window[window]),
+                short_counts,
+                len(short_items),
+                last_seen,
+                index,
+            )
+            _apply_audit_number_scores(window_scores, pair_scores)
+            scores_by_window[window] = window_scores
+        scores = scores_by_window[recent_window]
         seed = f"backtest|{product.slug}|{target.draw_id}|{MODEL_VERSION}"
-        model = _top_numbers(scores, "balanced", product.pick_count or 0, seed)
-        recent_model = _top_numbers(
-            scores,
-            "recent",
-            product.pick_count or 0,
-            seed + "|recent",
-        )
-        audit_model = _audit_number_pick(
-            scores,
-            pair_scores,
-            product.pick_count or 0,
-            seed + "|audit",
-        )
+        models_by_window: dict[tuple[str, int], list[int]] = {}
+        for window, window_scores in scores_by_window.items():
+            balanced_seed = (
+                seed
+                if window == recent_window
+                else f"{seed}|window|{window}|balanced_signal"
+            )
+            recent_seed = (
+                seed + "|recent"
+                if window == recent_window
+                else f"{seed}|window|{window}|recent_frequency"
+            )
+            audit_seed = (
+                seed + "|audit"
+                if window == recent_window
+                else f"{seed}|window|{window}|audit_signal"
+            )
+            models_by_window[("balanced_signal", window)] = _top_numbers(
+                window_scores,
+                "balanced",
+                product.pick_count or 0,
+                balanced_seed,
+            )
+            models_by_window[("recent_frequency", window)] = _top_numbers(
+                window_scores,
+                "recent",
+                product.pick_count or 0,
+                recent_seed,
+            )
+            models_by_window[("audit_signal", window)] = _audit_number_pick(
+                window_scores,
+                pair_scores,
+                product.pick_count or 0,
+                audit_seed,
+            )
+        model = models_by_window[("balanced_signal", recent_window)]
+        recent_model = models_by_window[("recent_frequency", recent_window)]
+        audit_model = models_by_window[("audit_signal", recent_window)]
         actual = set(target.values)
         model_hit = len(actual.intersection(model))
         recent_hit = len(actual.intersection(recent_model))
@@ -1625,6 +1927,10 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
         differences.append(float(model_hit - expected_hits))
         recent_differences.append(float(recent_hit - expected_hits))
         audit_differences.append(float(audit_hit - expected_hits))
+        for key, trial_model in models_by_window.items():
+            window_differences[key].append(
+                float(len(actual.intersection(trial_model)) - expected_hits)
+            )
         for trial in BACKTEST_NUMBER_SHADOW_TRIALS:
             trial_id = str(trial["trial_id"])
             trial_model = _top_numbers(
@@ -1640,11 +1946,12 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
         total_counts.update(target.values)
         for value in target.values:
             last_seen[value] = index
-        recent_items.append(target)
-        recent_counts.update(target.values)
-        if len(recent_items) > recent_window:
-            expired = recent_items.popleft()
-            recent_counts.subtract(expired.values)
+        for window, recent_items in recent_items_by_window.items():
+            recent_items.append(target)
+            recent_counts_by_window[window].update(target.values)
+            if len(recent_items) > window:
+                expired = recent_items.popleft()
+                recent_counts_by_window[window].subtract(expired.values)
         short_items.append(target)
         short_counts.update(target.values)
         if len(short_items) > short_window:
@@ -1662,6 +1969,10 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
     evaluation_differences = differences[evaluation_start_offset:]
     evaluation_recent_differences = recent_differences[evaluation_start_offset:]
     evaluation_audit_differences = audit_differences[evaluation_start_offset:]
+    evaluation_window_differences = {
+        key: values[evaluation_start_offset:]
+        for key, values in window_differences.items()
+    }
     evaluation_model_distribution = Counter(evaluation_model_hits)
     evaluation_recent_distribution = Counter(evaluation_recent_hits)
     evaluation_audit_distribution = Counter(evaluation_audit_hits)
@@ -1687,59 +1998,138 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
         fmean(evaluation_recent_differences) > 0 and recent_p_value < 0.05
     )
     audit_comparison_wins = fmean(evaluation_audit_differences) > 0 and audit_p_value < 0.05
+    published_trials = [
+        _backtest_trial_row(
+            trial_id="balanced_signal:published_final",
+            strategy="balanced_signal",
+            label=str(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES[0]["label"]),
+            variant_role="published_final_model",
+            differences=evaluation_differences,
+            metric_key="mean_hit_difference",
+            scope_fields=scope_fields,
+            parameters=_backtest_window_trial_parameters(
+                product_kind="number_set",
+                strategy="balanced_signal",
+                recent_window=recent_window,
+                primary_recent_window=recent_window,
+                short_window=short_window,
+                pair_window=pair_window,
+            ),
+            published_comparison_key="comparison",
+            metadata=_backtest_window_trial_metadata(
+                window=recent_window,
+                primary_recent_window=recent_window,
+            ),
+        ),
+        _backtest_trial_row(
+            trial_id="recent_frequency:published_final",
+            strategy="recent_frequency",
+            label=str(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES[1]["label"]),
+            variant_role="published_final_model",
+            differences=evaluation_recent_differences,
+            metric_key="mean_hit_difference",
+            scope_fields=scope_fields,
+            parameters=_backtest_window_trial_parameters(
+                product_kind="number_set",
+                strategy="recent_frequency",
+                recent_window=recent_window,
+                primary_recent_window=recent_window,
+                short_window=short_window,
+                pair_window=pair_window,
+            ),
+            published_comparison_key="recent_comparison",
+            metadata=_backtest_window_trial_metadata(
+                window=recent_window,
+                primary_recent_window=recent_window,
+            ),
+        ),
+        _backtest_trial_row(
+            trial_id="audit_signal:published_final",
+            strategy="audit_signal",
+            label=str(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES[2]["label"]),
+            variant_role="published_final_model",
+            differences=evaluation_audit_differences,
+            metric_key="mean_hit_difference",
+            scope_fields=scope_fields,
+            parameters=_backtest_window_trial_parameters(
+                product_kind="number_set",
+                strategy="audit_signal",
+                recent_window=recent_window,
+                primary_recent_window=recent_window,
+                short_window=short_window,
+                pair_window=pair_window,
+            ),
+            published_comparison_key="audit_comparison",
+            metadata=_backtest_window_trial_metadata(
+                window=recent_window,
+                primary_recent_window=recent_window,
+            ),
+        ),
+    ]
+    shadow_trials = [
+        _backtest_trial_row(
+            trial_id=f"{trial['strategy']}:{trial['trial_id']}",
+            strategy=str(trial["strategy"]),
+            label=str(trial["label"]),
+            variant_role=str(trial["variant_role"]),
+            differences=shadow_differences[str(trial["trial_id"])][
+                evaluation_start_offset:
+            ],
+            metric_key="mean_hit_difference",
+            scope_fields=scope_fields,
+            parameters=dict(trial["parameters"]),
+        )
+        for trial in BACKTEST_NUMBER_SHADOW_TRIALS
+    ]
+    published_trials_by_strategy = {
+        str(trial["strategy"]): trial
+        for trial in published_trials
+    }
+    sensitivity_trials: list[dict[str, Any]] = []
+    for window in registered_windows:
+        for strategy_config in BACKTEST_WINDOW_SENSITIVITY_STRATEGIES:
+            strategy = str(strategy_config["strategy"])
+            if window == recent_window:
+                sensitivity_trials.append(published_trials_by_strategy[strategy])
+                continue
+            sensitivity_trials.append(
+                _backtest_trial_row(
+                    trial_id=f"{strategy}:recent_window_{window}",
+                    strategy=strategy,
+                    label=f"{strategy_config['label']} - cửa sổ {window} kỳ",
+                    variant_role="registered_parameter_variant",
+                    differences=evaluation_window_differences[(strategy, window)],
+                    metric_key="mean_hit_difference",
+                    scope_fields=scope_fields,
+                    parameters=_backtest_window_trial_parameters(
+                        product_kind="number_set",
+                        strategy=strategy,
+                        recent_window=window,
+                        primary_recent_window=recent_window,
+                        short_window=short_window,
+                        pair_window=pair_window,
+                    ),
+                    metadata=_backtest_window_trial_metadata(
+                        window=window,
+                        primary_recent_window=recent_window,
+                    ),
+                )
+            )
+    registered_window_trials = [
+        row
+        for row in sensitivity_trials
+        if row.get("window_sensitivity_role") == "registered_alternative_window"
+    ]
     multiple_testing_trials = _backtest_multiple_testing_trials(
         "number_set",
         "mean_hit_difference",
-        [
-            _backtest_trial_row(
-                trial_id="balanced_signal:published_final",
-                strategy="balanced_signal",
-                label="Kết hợp ba dấu hiệu",
-                variant_role="published_final_model",
-                differences=evaluation_differences,
-                metric_key="mean_hit_difference",
-                scope_fields=scope_fields,
-                parameters={"score_policy": NUMBER_SCORE_POLICY},
-                published_comparison_key="comparison",
-            ),
-            _backtest_trial_row(
-                trial_id="recent_frequency:published_final",
-                strategy="recent_frequency",
-                label="Tần suất cửa sổ gần",
-                variant_role="published_final_model",
-                differences=evaluation_recent_differences,
-                metric_key="mean_hit_difference",
-                scope_fields=scope_fields,
-                parameters={"score_policy": "0.6*short_z+0.4*recent_z"},
-                published_comparison_key="recent_comparison",
-            ),
-            _backtest_trial_row(
-                trial_id="audit_signal:published_final",
-                strategy="audit_signal",
-                label="Tín hiệu kiểm định công bằng",
-                variant_role="published_final_model",
-                differences=evaluation_audit_differences,
-                metric_key="mean_hit_difference",
-                scope_fields=scope_fields,
-                parameters={"score_policy": AUDIT_NUMBER_SCORE_POLICY},
-                published_comparison_key="audit_comparison",
-            ),
-            *[
-                _backtest_trial_row(
-                    trial_id=f"{trial['strategy']}:{trial['trial_id']}",
-                    strategy=str(trial["strategy"]),
-                    label=str(trial["label"]),
-                    variant_role=str(trial["variant_role"]),
-                    differences=shadow_differences[str(trial["trial_id"])][
-                        evaluation_start_offset:
-                    ],
-                    metric_key="mean_hit_difference",
-                    scope_fields=scope_fields,
-                    parameters=dict(trial["parameters"]),
-                )
-                for trial in BACKTEST_NUMBER_SHADOW_TRIALS
-            ],
-        ],
+        [*published_trials, *shadow_trials, *registered_window_trials],
+    )
+    window_sensitivity = _backtest_window_sensitivity(
+        "number_set",
+        "mean_hit_difference",
+        recent_window,
+        sensitivity_trials,
     )
     trial_disposition_log = _backtest_trial_disposition_log(
         "number_set",
@@ -1756,6 +2146,7 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
         "target_scope": target_scope,
         "phase_split": phase_split,
         "multiple_testing_trials": multiple_testing_trials,
+        "window_sensitivity": window_sensitivity,
         "trial_disposition_log": trial_disposition_log,
         "score_formulas": _number_backtest_score_formulas(),
         "first_walk_forward_draw_id": observations[start].draw_id,
@@ -1837,6 +2228,7 @@ def _number_backtest(dataset: ProductDataset) -> dict[str, object]:
     _validate_backtest_target_scope(report)
     _validate_backtest_phase_split(report)
     _validate_backtest_multiple_testing_trials(report)
+    _validate_backtest_window_sensitivity(report)
     _validate_backtest_trial_disposition_log(report)
     return report
 
@@ -1864,18 +2256,27 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
     length = product.sequence_length or 0
     symbols = list(range(product.sequence_min, product.sequence_max + 1))
     total = [Counter() for _ in range(length)]
-    recent = [Counter() for _ in range(length)]
     short = [Counter() for _ in range(length)]
     for item in observations[:start]:
         _update_digit_counts(total, item.outcomes, 1)
     recent_window = 500
     short_window = 50
-    recent_items = deque(observations[max(0, start - recent_window) : start])
+    registered_windows = BACKTEST_WINDOW_SENSITIVITY_WINDOWS
+    recent_items_by_window = {
+        window: deque(observations[max(0, start - window) : start])
+        for window in registered_windows
+    }
+    recent_counts_by_window = {
+        window: [Counter() for _ in range(length)]
+        for window in registered_windows
+    }
     short_items = deque(observations[max(0, start - short_window) : start])
-    for item in recent_items:
-        _update_digit_counts(recent, item.outcomes, 1)
+    for window, recent_items in recent_items_by_window.items():
+        for item in recent_items:
+            _update_digit_counts(recent_counts_by_window[window], item.outcomes, 1)
     for item in short_items:
         _update_digit_counts(short, item.outcomes, 1)
+    recent = recent_counts_by_window[recent_window]
 
     model_exact_flags: list[bool] = []
     recent_exact_flags: list[bool] = []
@@ -1890,26 +2291,39 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
         str(trial["trial_id"]): []
         for trial in BACKTEST_DIGIT_SHADOW_TRIALS
     }
+    window_differences: dict[tuple[str, int], list[float]] = {
+        (str(strategy["strategy"]), window): []
+        for window in registered_windows
+        for strategy in BACKTEST_WINDOW_SENSITIVITY_STRATEGIES
+    }
     for index in range(start, len(observations)):
         target = observations[index]
         seed = f"backtest|{product.slug}|{target.draw_id}|{MODEL_VERSION}"
-        model = _digit_sequence_from_scores(total, recent, short, symbols, "balanced", seed)
-        recent_model = _digit_sequence_from_scores(
-            total,
-            recent,
-            short,
-            symbols,
-            "recent",
-            seed + "|recent",
-        )
-        audit_model = _digit_sequence_from_scores(
-            total,
-            recent,
-            short,
-            symbols,
-            "audit",
-            seed,
-        )
+        models_by_window: dict[tuple[str, int], str] = {}
+        for window in registered_windows:
+            window_recent = recent_counts_by_window[window]
+            for strategy_config in BACKTEST_WINDOW_SENSITIVITY_STRATEGIES:
+                strategy = str(strategy_config["strategy"])
+                score_strategy = str(strategy_config["score_strategy"])
+                if window == recent_window and strategy == "balanced_signal":
+                    strategy_seed = seed
+                elif window == recent_window and strategy == "recent_frequency":
+                    strategy_seed = seed + "|recent"
+                elif window == recent_window and strategy == "audit_signal":
+                    strategy_seed = seed
+                else:
+                    strategy_seed = f"{seed}|window|{window}|{strategy}"
+                models_by_window[(strategy, window)] = _digit_sequence_from_scores(
+                    total,
+                    window_recent,
+                    short,
+                    symbols,
+                    score_strategy,
+                    strategy_seed,
+                )
+        model = models_by_window[("balanced_signal", recent_window)]
+        recent_model = models_by_window[("recent_frequency", recent_window)]
+        audit_model = models_by_window[("audit_signal", recent_window)]
         actual = set(target.outcomes)
         (
             expected_best_match,
@@ -1925,6 +2339,10 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
         baseline_best_expected.append(expected_best_match)
         baseline_exact_expected.append(expected_exact_probability)
         baseline_score_distributions.append(expected_score_distribution)
+        for key, trial_model in models_by_window.items():
+            window_differences[key].append(
+                float(_best_position_match(trial_model, actual) - expected_best_match)
+            )
         for trial in BACKTEST_DIGIT_SHADOW_TRIALS:
             trial_id = str(trial["trial_id"])
             trial_model = _digit_sequence_from_scores(
@@ -1940,11 +2358,16 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
             )
 
         _update_digit_counts(total, target.outcomes, 1)
-        recent_items.append(target)
-        _update_digit_counts(recent, target.outcomes, 1)
-        if len(recent_items) > recent_window:
-            expired = recent_items.popleft()
-            _update_digit_counts(recent, expired.outcomes, -1)
+        for window, recent_items in recent_items_by_window.items():
+            recent_items.append(target)
+            _update_digit_counts(recent_counts_by_window[window], target.outcomes, 1)
+            if len(recent_items) > window:
+                expired = recent_items.popleft()
+                _update_digit_counts(
+                    recent_counts_by_window[window],
+                    expired.outcomes,
+                    -1,
+                )
 
         short_items.append(target)
         _update_digit_counts(short, target.outcomes, 1)
@@ -1989,6 +2412,10 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
             strict=True,
         )
     ]
+    evaluation_window_differences = {
+        key: values[evaluation_start_offset:]
+        for key, values in window_differences.items()
+    }
     z_score, p_value = _paired_normal_test(differences)
     recent_z_score, recent_p_value = _paired_normal_test(recent_differences)
     audit_z_score, audit_p_value = _paired_normal_test(audit_differences)
@@ -2000,59 +2427,134 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
         fmean(recent_differences) > 0 and recent_p_value < 0.05
     )
     audit_comparison_wins = fmean(audit_differences) > 0 and audit_p_value < 0.05
+    published_trials = [
+        _backtest_trial_row(
+            trial_id="balanced_signal:published_final",
+            strategy="balanced_signal",
+            label=str(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES[0]["label"]),
+            variant_role="published_final_model",
+            differences=differences,
+            metric_key="mean_position_match_difference",
+            scope_fields=scope_fields,
+            parameters=_backtest_window_trial_parameters(
+                product_kind="digit_sequence",
+                strategy="balanced_signal",
+                recent_window=recent_window,
+                primary_recent_window=recent_window,
+                short_window=short_window,
+            ),
+            published_comparison_key="comparison",
+            metadata=_backtest_window_trial_metadata(
+                window=recent_window,
+                primary_recent_window=recent_window,
+            ),
+        ),
+        _backtest_trial_row(
+            trial_id="recent_frequency:published_final",
+            strategy="recent_frequency",
+            label=str(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES[1]["label"]),
+            variant_role="published_final_model",
+            differences=recent_differences,
+            metric_key="mean_position_match_difference",
+            scope_fields=scope_fields,
+            parameters=_backtest_window_trial_parameters(
+                product_kind="digit_sequence",
+                strategy="recent_frequency",
+                recent_window=recent_window,
+                primary_recent_window=recent_window,
+                short_window=short_window,
+            ),
+            published_comparison_key="recent_comparison",
+            metadata=_backtest_window_trial_metadata(
+                window=recent_window,
+                primary_recent_window=recent_window,
+            ),
+        ),
+        _backtest_trial_row(
+            trial_id="audit_signal:published_final",
+            strategy="audit_signal",
+            label=str(BACKTEST_WINDOW_SENSITIVITY_STRATEGIES[2]["label"]),
+            variant_role="published_final_model",
+            differences=audit_differences,
+            metric_key="mean_position_match_difference",
+            scope_fields=scope_fields,
+            parameters=_backtest_window_trial_parameters(
+                product_kind="digit_sequence",
+                strategy="audit_signal",
+                recent_window=recent_window,
+                primary_recent_window=recent_window,
+                short_window=short_window,
+            ),
+            published_comparison_key="audit_comparison",
+            metadata=_backtest_window_trial_metadata(
+                window=recent_window,
+                primary_recent_window=recent_window,
+            ),
+        ),
+    ]
+    shadow_trials = [
+        _backtest_trial_row(
+            trial_id=f"{trial['strategy']}:{trial['trial_id']}",
+            strategy=str(trial["strategy"]),
+            label=str(trial["label"]),
+            variant_role=str(trial["variant_role"]),
+            differences=shadow_differences[str(trial["trial_id"])][
+                evaluation_start_offset:
+            ],
+            metric_key="mean_position_match_difference",
+            scope_fields=scope_fields,
+            parameters=dict(trial["parameters"]),
+        )
+        for trial in BACKTEST_DIGIT_SHADOW_TRIALS
+    ]
+    published_trials_by_strategy = {
+        str(trial["strategy"]): trial
+        for trial in published_trials
+    }
+    sensitivity_trials: list[dict[str, Any]] = []
+    for window in registered_windows:
+        for strategy_config in BACKTEST_WINDOW_SENSITIVITY_STRATEGIES:
+            strategy = str(strategy_config["strategy"])
+            if window == recent_window:
+                sensitivity_trials.append(published_trials_by_strategy[strategy])
+                continue
+            sensitivity_trials.append(
+                _backtest_trial_row(
+                    trial_id=f"{strategy}:recent_window_{window}",
+                    strategy=strategy,
+                    label=f"{strategy_config['label']} - cửa sổ {window} kỳ",
+                    variant_role="registered_parameter_variant",
+                    differences=evaluation_window_differences[(strategy, window)],
+                    metric_key="mean_position_match_difference",
+                    scope_fields=scope_fields,
+                    parameters=_backtest_window_trial_parameters(
+                        product_kind="digit_sequence",
+                        strategy=strategy,
+                        recent_window=window,
+                        primary_recent_window=recent_window,
+                        short_window=short_window,
+                    ),
+                    metadata=_backtest_window_trial_metadata(
+                        window=window,
+                        primary_recent_window=recent_window,
+                    ),
+                )
+            )
+    registered_window_trials = [
+        row
+        for row in sensitivity_trials
+        if row.get("window_sensitivity_role") == "registered_alternative_window"
+    ]
     multiple_testing_trials = _backtest_multiple_testing_trials(
         "digit_sequence",
         "mean_position_match_difference",
-        [
-            _backtest_trial_row(
-                trial_id="balanced_signal:published_final",
-                strategy="balanced_signal",
-                label="Kết hợp ba dấu hiệu",
-                variant_role="published_final_model",
-                differences=differences,
-                metric_key="mean_position_match_difference",
-                scope_fields=scope_fields,
-                parameters={"score_policy": DIGIT_SCORE_POLICY},
-                published_comparison_key="comparison",
-            ),
-            _backtest_trial_row(
-                trial_id="recent_frequency:published_final",
-                strategy="recent_frequency",
-                label="Tần suất cửa sổ gần",
-                variant_role="published_final_model",
-                differences=recent_differences,
-                metric_key="mean_position_match_difference",
-                scope_fields=scope_fields,
-                parameters={"score_policy": "0.6*short_z+0.4*recent_z"},
-                published_comparison_key="recent_comparison",
-            ),
-            _backtest_trial_row(
-                trial_id="audit_signal:published_final",
-                strategy="audit_signal",
-                label="Tín hiệu kiểm định công bằng",
-                variant_role="published_final_model",
-                differences=audit_differences,
-                metric_key="mean_position_match_difference",
-                scope_fields=scope_fields,
-                parameters={"score_policy": AUDIT_DIGIT_SCORE_POLICY},
-                published_comparison_key="audit_comparison",
-            ),
-            *[
-                _backtest_trial_row(
-                    trial_id=f"{trial['strategy']}:{trial['trial_id']}",
-                    strategy=str(trial["strategy"]),
-                    label=str(trial["label"]),
-                    variant_role=str(trial["variant_role"]),
-                    differences=shadow_differences[str(trial["trial_id"])][
-                        evaluation_start_offset:
-                    ],
-                    metric_key="mean_position_match_difference",
-                    scope_fields=scope_fields,
-                    parameters=dict(trial["parameters"]),
-                )
-                for trial in BACKTEST_DIGIT_SHADOW_TRIALS
-            ],
-        ],
+        [*published_trials, *shadow_trials, *registered_window_trials],
+    )
+    window_sensitivity = _backtest_window_sensitivity(
+        "digit_sequence",
+        "mean_position_match_difference",
+        recent_window,
+        sensitivity_trials,
     )
     trial_disposition_log = _backtest_trial_disposition_log(
         "digit_sequence",
@@ -2069,6 +2571,7 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
         "target_scope": target_scope,
         "phase_split": phase_split,
         "multiple_testing_trials": multiple_testing_trials,
+        "window_sensitivity": window_sensitivity,
         "trial_disposition_log": trial_disposition_log,
         "score_formulas": _digit_backtest_score_formulas(),
         "first_walk_forward_draw_id": observations[start].draw_id,
@@ -2163,6 +2666,7 @@ def _digit_backtest(dataset: ProductDataset) -> dict[str, object]:
     _validate_backtest_target_scope(report)
     _validate_backtest_phase_split(report)
     _validate_backtest_multiple_testing_trials(report)
+    _validate_backtest_window_sensitivity(report)
     _validate_backtest_trial_disposition_log(report)
     return report
 

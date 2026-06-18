@@ -62,6 +62,9 @@ backtest hoặc cách đọc website. Thay đổi giao diện thuần túy khôn
 - Thêm `backtest.trial_disposition_log`, lưu mọi trial đã chạy nhưng không thắng
   sau hiệu chỉnh cùng các cấu hình bị loại trước phase đánh giá cuối; manifest
   công bố `trial_disposition_validation`
+- Thêm `backtest.window_sensitivity`, chạy lại ba chiến lược công bố trên cửa
+  sổ gần 50/200/500 kỳ; các cửa sổ phụ được đưa vào `multiple_testing_trials`
+  và manifest công bố `window_sensitivity_validation`
 
 ## 15/06/2026
 

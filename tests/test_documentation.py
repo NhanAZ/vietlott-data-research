@@ -25,6 +25,7 @@ def test_research_documentation_and_issue_templates_exist() -> None:
         ROOT / "docs" / "BACKTEST_PHASE_SPLIT.md",
         ROOT / "docs" / "BACKTEST_MULTIPLE_TESTING.md",
         ROOT / "docs" / "BACKTEST_TRIAL_DISPOSITION.md",
+        ROOT / "docs" / "BACKTEST_WINDOW_SENSITIVITY.md",
         ROOT / "docs" / "METHODOLOGY_CHANGELOG.md",
         ROOT / "docs" / "templates" / "BAO_CAO_KET_QUA_AM.md",
         ROOT / "docs" / "DU_DOAN_BINGO18_0171884.md",
@@ -60,6 +61,7 @@ def test_readme_links_research_documents_without_em_dash() -> None:
     assert "docs/BACKTEST_PHASE_SPLIT.md" in readme
     assert "docs/BACKTEST_MULTIPLE_TESTING.md" in readme
     assert "docs/BACKTEST_TRIAL_DISPOSITION.md" in readme
+    assert "docs/BACKTEST_WINDOW_SENSITIVITY.md" in readme
     assert "docs/METHODOLOGY_CHANGELOG.md" in readme
     assert "docs/templates/BAO_CAO_KET_QUA_AM.md" in readme
     assert "docs/DU_DOAN_BINGO18_0171884.md" in readme
@@ -271,3 +273,16 @@ def test_backtest_trial_disposition_documentation_has_required_fields() -> None:
     assert "failed_trial_count" in document
     assert "reason_code" in document
     assert "trial_disposition_validation" in document
+
+
+def test_backtest_window_sensitivity_documentation_has_required_fields() -> None:
+    document = (ROOT / "docs" / "BACKTEST_WINDOW_SENSITIVITY.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "window_sensitivity" in document
+    assert "registered_window_draws" in document
+    assert "primary_recent_window_draws" in document
+    assert "alternative_window_trial_count" in document
+    assert "multiple_testing_trials" in document
+    assert "window_sensitivity_validation" in document

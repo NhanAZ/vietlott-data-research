@@ -447,8 +447,19 @@ file để giữ lại dấu vết thay đổi.
   - Website hiển thị "Nhật ký trial thất bại và bị loại"; tài liệu hóa trong
     `docs/BACKTEST_TRIAL_DISPOSITION.md` và khóa bằng unit test, documentation test,
     static-site test.
-- [ ] `BACKTEST-009` Thêm kiểm tra độ nhạy theo độ dài cửa sổ 50, 200, 500 kỳ và
+- [x] `BACKTEST-009` Thêm kiểm tra độ nhạy theo độ dài cửa sổ 50, 200, 500 kỳ và
   các giá trị được đăng ký trước khác.
+  - Hoàn thành ngày 18/06/2026.
+  - Mỗi report backtest có `window_sensitivity` gồm ma trận 3 chiến lược x 3
+    cửa sổ gần 50/200/500 kỳ; cửa sổ mặc định là trial công bố, cửa sổ phụ là
+    `registered_parameter_variant`.
+  - Các trial cửa sổ phụ được đưa vào `multiple_testing_trials`, làm scope hiệu
+    chỉnh toàn hệ thống tăng lên 13 trial mỗi sản phẩm.
+  - `build_backtest_report` validate ma trận cửa sổ; `finalize_backtests` công
+    bố `manifest.backtest_summary.window_sensitivity_validation`.
+  - Website hiển thị "Độ nhạy cửa sổ gần"; tài liệu hóa trong
+    `docs/BACKTEST_WINDOW_SENSITIVITY.md` và khóa bằng unit test, documentation
+    test, static-site test.
 
 ### P1.6 Ước lượng bất định đúng với chuỗi thời gian
 

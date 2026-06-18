@@ -20,7 +20,7 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert 'id="kiem-dinh"' in index
-    assert "assets/app.js?v=20260618-10" in index
+    assert "assets/app.js?v=20260618-11" in index
     assert "archive-summary-heading" in index
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260618-2" in data_page
@@ -137,12 +137,15 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "renderBacktestScoreFormulas" in app_script
     assert "renderBacktestPartialBaseline" in app_script
     assert "renderBacktestPhaseSplit" in app_script
+    assert "renderBacktestWindowSensitivity" in app_script
+    assert "window_sensitivity" in app_script
     assert "Tách chọn công thức và đánh giá cuối" in app_script
     assert "renderBacktestMultipleTestingScope" in app_script
     assert "Registry hiệu chỉnh nhiều phép thử" in app_script
     assert "renderBacktestTrialDisposition" in app_script
     assert "Nhật ký trial thất bại và bị loại" in app_script
     assert "trial_disposition_log" in method_page
+    assert "window_sensitivity" in method_page
     assert "Baseline trùng một phần" in app_script
     assert "Thước đo riêng" in app_script
     assert "Ba chiến lược ứng viên" in method_page
@@ -220,6 +223,14 @@ def test_generated_site_data_matches_manifest() -> None:
     assert registry_validation["correction_trial_count"] == manifest[
         "backtest_summary"
     ]["correction_trial_count"]
+    window_validation = manifest["backtest_summary"]["window_sensitivity_validation"]
+    assert window_validation["status"] == "validated"
+    assert window_validation["product_count"] == len(manifest["products"])
+    assert window_validation["registered_window_draws"] == [50, 200, 500]
+    assert window_validation["included_trial_count"] == len(manifest["products"]) * 9
+    assert window_validation["alternative_window_trial_count"] == (
+        len(manifest["products"]) * 6
+    )
     disposition_validation = manifest["backtest_summary"]["trial_disposition_validation"]
     assert disposition_validation["status"] == "validated"
     assert disposition_validation["product_count"] == len(manifest["products"])
@@ -440,14 +451,22 @@ def test_generated_site_data_matches_manifest() -> None:
         assert report["backtest"]["recent_model"]["strategy"] == "recent_frequency"
         assert "recent_comparison" in report["backtest"]
         trial_registry = report["backtest"]["multiple_testing_trials"]
-        assert trial_registry["trial_count"] == 7
+        assert trial_registry["trial_count"] == 13
         assert trial_registry["published_trial_count"] == 3
-        assert trial_registry["registered_parameter_variant_count"] == 4
+        assert trial_registry["registered_parameter_variant_count"] == 10
         assert {
             row["published_comparison_key"]
             for row in trial_registry["trials"]
             if row["published"]
         } == {"comparison", "recent_comparison", "audit_comparison"}
+        window_sensitivity = report["backtest"]["window_sensitivity"]
+        assert window_sensitivity["registered_window_draws"] == [50, 200, 500]
+        assert window_sensitivity["trial_count"] == 9
+        assert window_sensitivity["primary_trial_count"] == 3
+        assert window_sensitivity["alternative_window_trial_count"] == 6
+        assert {
+            row["trial_id"] for row in window_sensitivity["trials"]
+        }.issubset({row["trial_id"] for row in trial_registry["trials"]})
         trial_log = report["backtest"]["trial_disposition_log"]
         assert trial_log["included_trial_count"] == trial_registry["trial_count"]
         assert trial_log["rejected_configuration_count"] >= 4

@@ -1658,6 +1658,9 @@ function renderBacktest(backtest, kind) {
       : "Kết luận: các chiến lược hiện tại chưa tốt hơn cách chọn đồng đều một cách đáng tin cậy.";
   const scoreDescription = renderBacktestScoreFormulas(backtest.score_formulas, kind);
   const phaseDescription = renderBacktestPhaseSplit(backtest.phase_split);
+  const windowSensitivityDescription = renderBacktestWindowSensitivity(
+    backtest.window_sensitivity,
+  );
   const multipleTestingDescription = renderBacktestMultipleTestingScope(backtest);
   const trialDispositionDescription = renderBacktestTrialDisposition(
     backtest.trial_disposition_log,
@@ -1709,6 +1712,7 @@ function renderBacktest(backtest, kind) {
           <li><strong>Phạm vi kiểm tra</strong><span>${numberFormatter.format(backtest.samples)} kỳ, từ mã kỳ ${escapeHtml(backtest.first_test_draw_id)} đến ${escapeHtml(backtest.latest_test_draw_id)}. Trước kỳ kiểm tra đầu có ${numberFormatter.format(backtest.initial_training_draws)} kỳ lịch sử. Cửa sổ ngắn ${numberFormatter.format(backtest.short_window_draws)} kỳ, cửa sổ gần ${numberFormatter.format(backtest.recent_window_draws)} kỳ${backtest.pair_window_draws ? `, cửa sổ cặp ${numberFormatter.format(backtest.pair_window_draws)} kỳ` : ""}.</span></li>
           <li><strong>Tập kỳ mục tiêu chung</strong><span>Baseline, ba chiến lược và ba phép so sánh cùng dùng ${numberFormatter.format(targetScope.target_draw_count || backtest.samples)} kỳ mục tiêu. Scope ${escapeHtml(targetScope.scope_id || "chưa công bố")} khóa bằng hash danh sách mã kỳ.</span></li>
           ${phaseDescription}
+          ${windowSensitivityDescription}
           ${scoreDescription}
           <li><strong>Baseline đồng đều chính xác</strong><span>Với tập số, kỳ vọng và phân bố số trùng được tính bằng phân bố siêu bội. Với chuỗi chữ số, chương trình đếm chính xác toàn bộ không gian chuỗi hợp lệ của từng kỳ. Kết quả không phụ thuộc seed.</span></li>
           <li><strong>So sánh theo từng kỳ</strong><span>Với mỗi kỳ tính d = điểm chiến lược - điểm kỳ vọng đồng đều. Báo cáo lấy trung bình d và tính z = trung bình(d) / (độ lệch chuẩn(d) / √n), rồi lấy p hai phía từ phân bố chuẩn.</span></li>
@@ -1737,6 +1741,23 @@ function renderBacktestPhaseSplit(phaseSplit) {
       ${numberFormatter.format(evaluation.draw_count || 0)} kỳ sau là phase đánh giá cuối.
       Tổng cửa sổ walk-forward ${numberFormatter.format(total)} kỳ; scope đánh giá cuối
       ${escapeHtml(evaluation.scope_id || "chưa công bố")} trùng với target_scope.
+    </span></li>`;
+}
+
+function renderBacktestWindowSensitivity(sensitivity) {
+  if (!sensitivity) return "";
+  const windows = (sensitivity.registered_window_draws || [])
+    .map((value) => numberFormatter.format(value))
+    .join("/");
+  const primary = sensitivity.primary_recent_window_draws || 0;
+  const alternatives = sensitivity.alternative_window_trial_count || 0;
+  const trialCount = sensitivity.trial_count || 0;
+  return `
+    <li><strong>Độ nhạy cửa sổ gần</strong><span>
+      Ba chiến lược công bố được chạy lại trên cửa sổ ${escapeHtml(windows)} kỳ.
+      Cửa sổ mặc định ${numberFormatter.format(primary)} kỳ là trial công bố;
+      ${numberFormatter.format(alternatives)} trial cửa sổ phụ được giữ trong registry.
+      Tổng ma trận độ nhạy có ${numberFormatter.format(trialCount)} dòng.
     </span></li>`;
 }
 
