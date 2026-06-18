@@ -12,6 +12,7 @@ def test_research_documentation_and_issue_templates_exist() -> None:
         ROOT / "docs" / "AUDIT_TEST_DEPENDENCIES.md",
         ROOT / "docs" / "AUDIT_TIER_BREAKDOWN.md",
         ROOT / "docs" / "AUDIT_PERIOD_BREAKDOWN.md",
+        ROOT / "docs" / "AUDIT_SOURCE_BREAKDOWN.md",
         ROOT / "docs" / "METHODOLOGY_CHANGELOG.md",
         ROOT / "docs" / "templates" / "BAO_CAO_KET_QUA_AM.md",
         ROOT / "docs" / "DU_DOAN_BINGO18_0171884.md",
@@ -34,6 +35,7 @@ def test_readme_links_research_documents_without_em_dash() -> None:
     assert "docs/AUDIT_TEST_DEPENDENCIES.md" in readme
     assert "docs/AUDIT_TIER_BREAKDOWN.md" in readme
     assert "docs/AUDIT_PERIOD_BREAKDOWN.md" in readme
+    assert "docs/AUDIT_SOURCE_BREAKDOWN.md" in readme
     assert "docs/METHODOLOGY_CHANGELOG.md" in readme
     assert "docs/templates/BAO_CAO_KET_QUA_AM.md" in readme
     assert "docs/DU_DOAN_BINGO18_0171884.md" in readme
@@ -88,5 +90,15 @@ def test_audit_period_breakdown_documentation_has_required_fields() -> None:
     assert "period_breakdown" in document
     assert "digit_position_chi_square" in document
     assert "không chồng lấn" in document
+    assert "no_new_p_values" in document
+    assert "top_residuals" in document
+
+
+def test_audit_source_breakdown_documentation_has_required_fields() -> None:
+    document = (ROOT / "docs" / "AUDIT_SOURCE_BREAKDOWN.md").read_text(encoding="utf-8")
+
+    assert "source_breakdown" in document
+    assert "digit_position_chi_square" in document
+    assert "attributes_json.data_source" in document
     assert "no_new_p_values" in document
     assert "top_residuals" in document

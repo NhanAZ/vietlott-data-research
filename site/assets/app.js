@@ -791,6 +791,7 @@ function renderAuditPositionResiduals(audit) {
       <small>${escapeHtml(test.parameters.residual_note || "")}</small>
       ${renderAuditTierBreakdown(test)}
       ${renderAuditPeriodBreakdown(test)}
+      ${renderAuditSourceBreakdown(test)}
     </section>`;
 }
 
@@ -870,6 +871,68 @@ function renderAuditPeriodBreakdown(test) {
           </article>`).join("")}
       </div>
     </div>`;
+}
+
+function renderAuditSourceBreakdown(test) {
+  const breakdown = test.parameters?.source_breakdown;
+  const sources = breakdown?.sources || [];
+  if (!breakdown || !sources.length) return "";
+  const statusLabels = {
+    available: "Đủ nguồn đối chứng",
+    limited_comparison: "Đối chứng hạn chế",
+    single_source: "Một nguồn chính",
+    missing_source_metadata: "Thiếu metadata nguồn",
+  };
+  const sampleLabels = {
+    usable: "Đủ mẫu mô tả",
+    too_small: "Mẫu nhỏ",
+  };
+  return `
+    <div class="position-source-panel" aria-label="Phân rã theo nguồn dữ liệu">
+      <div class="position-source-heading">
+        <div>
+          <span>Nguồn dữ liệu</span>
+          <strong>Tín hiệu có tập trung ở parser hoặc mirror nào không?</strong>
+        </div>
+        <p>${escapeHtml(breakdown.interpretation || "")}</p>
+      </div>
+      <div class="position-source-status">
+        <span>${escapeHtml(statusLabels[breakdown.status] || breakdown.status)}</span>
+        <strong>${numberFormatter.format(breakdown.eligible_source_count || 0)}/${numberFormatter.format(breakdown.source_count || sources.length)} nguồn đủ mẫu</strong>
+      </div>
+      <div class="position-source-grid">
+        ${sources.map((source) => `
+          <article class="${escapeHtml(source.sample_status || "unknown")}">
+            <header>
+              <span>${escapeHtml(sampleLabels[source.sample_status] || source.sample_status || "Không rõ")}</span>
+              <strong>${escapeHtml(source.source_label || source.source_key)}</strong>
+              <small>${renderSourceCounters(source.source_hosts)}</small>
+            </header>
+            <dl>
+              <div><dt>Số kỳ</dt><dd>${numberFormatter.format(source.draws || 0)}</dd></div>
+              <div><dt>Kết quả</dt><dd>${numberFormatter.format(source.outcomes || 0)}</dd></div>
+              <div><dt>Đóng góp χ²</dt><dd>${source.chi_square_contribution == null ? "N/A" : formatDecimal(source.chi_square_contribution, 3)}</dd></div>
+              <div><dt>|residual|max</dt><dd>${source.max_abs_standardized_residual == null ? "N/A" : formatDecimal(source.max_abs_standardized_residual, 3)}</dd></div>
+            </dl>
+            ${source.sample_note ? `<p>${escapeHtml(source.sample_note)}</p>` : ""}
+            <div class="position-source-residuals">
+              ${(source.top_residuals || []).map((item) => `
+                <span title="Vị trí ${item.position}, số ${item.digit}: quan sát ${numberFormatter.format(item.observed)}, kỳ vọng ${formatDecimal(item.expected, 1)}">
+                  V${escapeHtml(item.position)}:${escapeHtml(item.digit)}
+                  <b>${formatSigned(item.standardized_residual)}</b>
+                </span>`).join("")}
+            </div>
+          </article>`).join("")}
+      </div>
+    </div>`;
+}
+
+function renderSourceCounters(rows = []) {
+  if (!rows.length) return "không rõ host";
+  return rows
+    .slice(0, 2)
+    .map((row) => `${row.key}: ${numberFormatter.format(row.count)}`)
+    .join(" · ");
 }
 
 function renderAuditTestRow(test) {

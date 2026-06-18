@@ -17,6 +17,16 @@ NORMAL = NormalDist()
 DIGIT_PERIOD_SEGMENTS = 3
 DIGIT_PERIOD_MIN_DRAWS = 30
 DIGIT_PERIOD_TOP_RESIDUALS = 5
+DIGIT_SOURCE_MIN_DRAWS = 30
+DIGIT_SOURCE_TOP_RESIDUALS = 5
+
+SOURCE_LABELS = {
+    "official_vietlott": "Vietlott chính thức",
+    "community_mirror": "Mirror cộng đồng",
+    "xosominhngoc_net_vn": "Xổ số Minh Ngọc",
+    "vietlott_vn": "vietlott.vn chưa gắn data_source",
+    "unknown": "Không rõ nguồn",
+}
 
 TIER_LABELS = {
     "first": "Giải nhất",
@@ -1246,6 +1256,7 @@ def _digit_position_test(
             "position_residuals": residuals,
             "tier_breakdown": _digit_tier_breakdown(dataset, symbols),
             "period_breakdown": _digit_period_breakdown(dataset, symbols),
+            "source_breakdown": _digit_source_breakdown(dataset, symbols),
             "residual_note": (
                 "Residual được công bố để giải thích đóng góp vào kiểm định tổng. "
                 "Không dùng từng ô như một kiểm định độc lập mới."
@@ -1516,6 +1527,182 @@ def _digit_period_row(
         "max_abs_standardized_residual": _round(max_abs_residual),
         "top_residuals": top_residuals,
     }
+
+
+def _digit_source_breakdown(
+    dataset: ProductDataset,
+    symbols: list[int],
+) -> dict[str, Any]:
+    product = dataset.product
+    length = product.sequence_length or 0
+    groups: dict[str, dict[str, Any]] = {}
+    for observation in dataset.observations:
+        outcomes = [
+            outcome
+            for outcome in observation.outcomes
+            if len(outcome) == length and outcome.isdigit()
+        ]
+        if not outcomes:
+            continue
+        source_key = _observation_source_key(observation)
+        group = groups.setdefault(
+            source_key,
+            {
+                "observations": [],
+                "outcomes": [],
+                "source_hosts": Counter(),
+                "source_origins": Counter(),
+                "source_verification": Counter(),
+            },
+        )
+        group["observations"].append(observation)
+        group["outcomes"].extend(outcomes)
+        group["source_hosts"][observation.source_host or "unknown"] += 1
+        group["source_origins"][observation.source_origin or "unknown"] += 1
+        group["source_verification"][observation.source_verification or "unknown"] += 1
+
+    if not groups:
+        return {
+            "status": "missing_source_metadata",
+            "basis": "attributes_json.data_source with source_url host fallback",
+            "sources": [],
+            "min_source_draws": DIGIT_SOURCE_MIN_DRAWS,
+            "no_new_p_values": True,
+            "interpretation": "Không có outcome dùng được để phân rã tín hiệu theo nguồn.",
+        }
+
+    sources = [
+        _digit_source_row(
+            source_key=source_key,
+            group=group,
+            symbols=symbols,
+            length=length,
+        )
+        for source_key, group in groups.items()
+    ]
+    sources.sort(key=lambda item: (-int(item["outcomes"]), str(item["source_key"])))
+    eligible_sources = [item for item in sources if item["sample_status"] == "usable"]
+    if len(sources) == 1:
+        status = "single_source"
+    elif len(eligible_sources) < 2:
+        status = "limited_comparison"
+    else:
+        status = "available"
+    return {
+        "status": status,
+        "basis": "attributes_json.data_source with source_url host fallback",
+        "min_source_draws": DIGIT_SOURCE_MIN_DRAWS,
+        "source_count": len(sources),
+        "eligible_source_count": len(eligible_sources),
+        "independent_source_check": "complete"
+        if len(eligible_sources) >= 2
+        else "limited_by_source_coverage",
+        "sources": sources,
+        "no_new_p_values": True,
+        "interpretation": (
+            "Các hàng theo nguồn giúp kiểm tra tín hiệu có tập trung ở một parser hoặc mirror hay không. "
+            "Nguồn quá ít kỳ chỉ dùng để rà dữ liệu, không dùng làm đối chứng thống kê."
+        ),
+    }
+
+
+def _digit_source_row(
+    *,
+    source_key: str,
+    group: dict[str, Any],
+    symbols: list[int],
+    length: int,
+) -> dict[str, Any]:
+    observations = list(group["observations"])
+    outcomes = list(group["outcomes"])
+    base = {
+        "source_key": source_key,
+        "source_label": SOURCE_LABELS.get(source_key, source_key.replace("_", " ")),
+        "draws": len(observations),
+        "outcomes": len(outcomes),
+        "source_hosts": _counter_rows(group["source_hosts"]),
+        "source_origins": _counter_rows(group["source_origins"]),
+        "source_verification": _counter_rows(group["source_verification"]),
+        "sample_status": "usable"
+        if len(observations) >= DIGIT_SOURCE_MIN_DRAWS
+        else "too_small",
+    }
+    if len(observations) < DIGIT_SOURCE_MIN_DRAWS:
+        return {
+            **base,
+            "expected_per_position_digit": None,
+            "chi_square_contribution": None,
+            "effect_size": None,
+            "max_abs_standardized_residual": None,
+            "top_residuals": [],
+            "sample_note": (
+                "Nguồn này chưa đủ kỳ tối thiểu để đọc residual ổn định; "
+                "chỉ dùng để rà parser hoặc dữ liệu nguồn."
+            ),
+        }
+
+    position_counts = [Counter() for _ in range(length)]
+    for outcome in outcomes:
+        for position, char in enumerate(outcome):
+            position_counts[position][int(char)] += 1
+    expected = len(outcomes) / len(symbols) if symbols else 0.0
+    residuals = [
+        {
+            "position": position + 1,
+            "digit": digit,
+            "observed": counter[digit],
+            "expected": _round(expected),
+            "standardized_residual": _round(
+                (counter[digit] - expected) / math.sqrt(expected)
+                if expected > 0
+                else 0.0
+            ),
+            "chi_square_contribution": _round(
+                ((counter[digit] - expected) ** 2) / expected
+                if expected > 0
+                else 0.0
+            ),
+        }
+        for position, counter in enumerate(position_counts)
+        for digit in symbols
+    ]
+    statistic = sum(item["chi_square_contribution"] for item in residuals)
+    max_abs_residual = max(
+        (abs(float(item["standardized_residual"])) for item in residuals),
+        default=0.0,
+    )
+    top_residuals = sorted(
+        residuals,
+        key=lambda item: abs(float(item["standardized_residual"])),
+        reverse=True,
+    )[:DIGIT_SOURCE_TOP_RESIDUALS]
+    return {
+        **base,
+        "expected_per_position_digit": _round(expected),
+        "chi_square_contribution": _round(statistic),
+        "effect_size": _round(
+            math.sqrt(statistic / (len(outcomes) * length))
+            if outcomes and length
+            else 0.0
+        ),
+        "max_abs_standardized_residual": _round(max_abs_residual),
+        "top_residuals": top_residuals,
+    }
+
+
+def _observation_source_key(observation: Any) -> str:
+    if observation.data_source and observation.data_source != "unknown":
+        return str(observation.data_source)
+    if observation.source_host and observation.source_host != "unknown":
+        return str(observation.source_host).replace(".", "_").replace("-", "_")
+    return observation.data_source or observation.source_origin or "unknown"
+
+
+def _counter_rows(counter: Counter[str]) -> list[dict[str, Any]]:
+    return [
+        {"key": str(key), "count": count}
+        for key, count in sorted(counter.items(), key=lambda item: (-item[1], item[0]))
+    ]
 
 
 def _digit_sum_distribution_test(

@@ -19,14 +19,12 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert 'id="phan-tich"' in index
     assert 'id="du-doan"' in index
     assert 'id="kiem-dinh"' in index
-    assert "assets/app.js?v=20260618-1" in index
+    assert "assets/app.js?v=20260618-3" in index
     assert "archive-summary-heading" in index
     assert "Sổ dự đoán toàn hệ thống" in index
     assert "assets/docs.js?v=20260618-2" in data_page
-    assert "assets/styles.css?v=20260618-2" in data_page
-    for page in (index, method_page):
-        assert "assets/styles.css?v=20260618-1" in page
     for page in (index, method_page, data_page):
+        assert "assets/styles.css?v=20260618-3" in page
         assert "assets/favicon.svg?v=20260614-9" in page
         assert "fonts.googleapis.com/css2?family=Noto+Serif" in page
         assert "cdn-uicons.flaticon.com/3.0.0" in page
@@ -69,13 +67,16 @@ def test_static_site_has_required_pages_and_local_assets() -> None:
     assert "renderAuditPositionResiduals" in app_script
     assert "renderAuditTierBreakdown" in app_script
     assert "renderAuditPeriodBreakdown" in app_script
+    assert "renderAuditSourceBreakdown" in app_script
     assert "Ô nào đóng góp nhiều vào độ lệch tổng?" in app_script
     assert "Phân rã residual, không tạo p-value mới" in app_script
     assert "Giai đoạn không chồng lấn" in app_script
+    assert "Nguồn dữ liệu" in app_script
     assert "threshold-sensitivity-grid" in styles
     assert "position-residual-grid" in styles
     assert "position-tier-grid" in styles
     assert "position-period-grid" in styles
+    assert "position-source-grid" in styles
     assert "audit-test-details" in app_script
     assert "audit-test-list-inner" in styles
     assert 'text("ribbon-product-count"' in app_script
@@ -248,6 +249,10 @@ def test_generated_site_data_matches_manifest() -> None:
             assert period_breakdown["no_new_p_values"] is True
             assert len(period_breakdown["segments"]) == 3
             assert all("p_value" not in segment for segment in period_breakdown["segments"])
+            source_breakdown = position_test["parameters"]["source_breakdown"]
+            assert source_breakdown["no_new_p_values"] is True
+            assert source_breakdown["sources"]
+            assert all("p_value" not in source for source in source_breakdown["sources"])
             if product["slug"] == "max4d":
                 assert any(
                     row["result_type"] == "wildcard_prefix"

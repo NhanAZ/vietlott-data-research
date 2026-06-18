@@ -29,6 +29,10 @@ class Observation:
     special_values: tuple[int, ...] = ()
     outcomes: tuple[str, ...] = ()
     tiered_outcomes: tuple[TieredOutcome, ...] = ()
+    source_host: str = "unknown"
+    data_source: str = "unknown"
+    source_origin: str = "unknown"
+    source_verification: str = "unknown"
 
     @property
     def ordering_key(self) -> tuple[date, int | str]:
@@ -111,9 +115,18 @@ def load_product_dataset(root: Path, product: AnalyticsProduct) -> ProductDatase
 
                 result = json.loads(row["result_json"])
                 attributes = json.loads(row.get("attributes_json") or "{}")
-                observation = _to_observation(product, row, result)
+                data_source = str(attributes.get("data_source", "unknown"))
+                observation = _to_observation(
+                    product,
+                    row,
+                    result,
+                    source_host=source_host,
+                    data_source=data_source,
+                    source_origin=assessment.source_origin.value,
+                    source_verification=assessment.source_verification.value,
+                )
                 dataset.observations.append(observation)
-                dataset.data_source_counts[str(attributes.get("data_source", "unknown"))] += 1
+                dataset.data_source_counts[data_source] += 1
                 jackpots = attributes.get("jackpots_vnd")
                 if isinstance(jackpots, dict):
                     for value in jackpots.values():
@@ -170,10 +183,19 @@ def _to_observation(
     product: AnalyticsProduct,
     row: dict[str, str],
     result: dict[str, object],
+    *,
+    source_host: str,
+    data_source: str,
+    source_origin: str,
+    source_verification: str,
 ) -> Observation:
     common = {
         "draw_id": row["draw_id"],
         "draw_date": date.fromisoformat(row["draw_date"]),
+        "source_host": source_host,
+        "data_source": data_source,
+        "source_origin": source_origin,
+        "source_verification": source_verification,
     }
     if product.kind is AnalysisKind.NUMBER_SET:
         numbers = tuple(int(value) for value in result.get("numbers", []))

@@ -78,6 +78,12 @@ def test_finalize_audits_adds_global_correction_and_jsonl_events() -> None:
             outcomes=(
                 f"{index % 6 + 1}{(index + 3) % 6 + 1}{(index + 5) % 6 + 1}",
             ),
+            source_host="vietlott.vn" if index < 60 else "mirror.example",
+            data_source="official_vietlott" if index < 60 else "community_mirror",
+            source_origin="official" if index < 60 else "community",
+            source_verification="official_verified_match"
+            if index < 60
+            else "single_secondary_source",
         )
         for index in range(120)
     ]
@@ -149,6 +155,22 @@ def test_finalize_audits_adds_global_correction_and_jsonl_events() -> None:
     )
     assert int(period_breakdown["segments"][0]["end_draw_id"]) < int(
         period_breakdown["segments"][1]["start_draw_id"]
+    )
+    source_breakdown = position_test["parameters"]["source_breakdown"]
+    assert source_breakdown["status"] == "available"
+    assert source_breakdown["no_new_p_values"] is True
+    assert source_breakdown["eligible_source_count"] == 2
+    assert {source["source_key"] for source in source_breakdown["sources"]} == {
+        "community_mirror",
+        "official_vietlott",
+    }
+    assert all(source["sample_status"] == "usable" for source in source_breakdown["sources"])
+    assert all("p_value" not in source for source in source_breakdown["sources"])
+    assert all(source["top_residuals"] for source in source_breakdown["sources"])
+    assert all(
+        "p_value" not in residual
+        for source in source_breakdown["sources"]
+        for residual in source["top_residuals"]
     )
 
 

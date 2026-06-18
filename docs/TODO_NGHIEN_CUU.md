@@ -272,7 +272,14 @@ file để giữ lại dấu vết thay đổi.
     giải thích thành phép kiểm hậu nghiệm.
   - Website hiển thị bảng giai đoạn trong phần residual vị trí, tài liệu hóa trong
     `docs/AUDIT_PERIOD_BREAKDOWN.md`, và khóa bằng unit test cùng static-site test.
-- [ ] `AUDIT-009` Kiểm tra tín hiệu riêng theo nguồn để loại trừ lỗi parser hoặc mirror.
+- [x] `AUDIT-009` Kiểm tra tín hiệu riêng theo nguồn để loại trừ lỗi parser hoặc mirror.
+  - Hoàn thành ngày 18/06/2026.
+  - `Observation` giữ metadata nguồn (`source_host`, `data_source`, `source_origin`,
+    `source_verification`) khi nạp `datasets/draws`.
+  - `digit_position_chi_square.parameters.source_breakdown` phân rã residual theo nguồn dữ liệu,
+    đánh dấu nguồn đủ mẫu và nguồn quá nhỏ, ghi `top_residuals` nhưng không tạo p-value mới.
+  - Website hiển thị bảng nguồn trong phần residual vị trí, tài liệu hóa trong
+    `docs/AUDIT_SOURCE_BREAKDOWN.md`, và khóa bằng unit test cùng static-site test.
 - [ ] `AUDIT-010` Thực hiện phân tích công suất và hiệu ứng nhỏ nhất có thể phát hiện.
 
 ### P1.3 Phép kiểm bền vững hơn
