@@ -625,7 +625,7 @@
     "weather": "1.0.0"
   },
   "parser_version": "0.2.0",
-  "repository_commit": "966773dd481b672d11cb35838416892a10c10079",
+  "repository_commit": "fbbe6bc521f4df32d7b39495b45c29b241cff08a",
   "schema_version": 1,
   "snapshot_at": "2026-06-18T16:19:53+00:00"
 }
